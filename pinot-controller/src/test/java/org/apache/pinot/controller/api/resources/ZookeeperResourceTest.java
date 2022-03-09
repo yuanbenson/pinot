@@ -21,7 +21,7 @@ package org.apache.pinot.controller.api.resources;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import org.apache.helix.ZNRecord;
+import org.apache.helix.zookeeper.datamodel.ZNRecord;
 import org.apache.pinot.common.utils.URIUtils;
 import org.apache.pinot.controller.helix.ControllerTest;
 import org.codehaus.jackson.type.TypeReference;
