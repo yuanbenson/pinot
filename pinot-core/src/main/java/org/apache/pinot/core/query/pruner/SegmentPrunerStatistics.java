@@ -16,17 +16,37 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.pinot.segment.local.segment.index.readers;
+package org.apache.pinot.core.query.pruner;
 
-import org.apache.pinot.segment.spi.memory.PinotDataBuffer;
+public class SegmentPrunerStatistics {
 
+  private int _invalidSegments;
 
-/**
- * Base class for on-heap immutable dictionary.
- */
-public abstract class OnHeapDictionary extends BaseImmutableDictionary {
+  private int _valuePruned;
 
-  protected OnHeapDictionary(PinotDataBuffer dataBuffer, int length, int numBytesPerValue, byte paddingByte) {
-    super(dataBuffer, length, numBytesPerValue, paddingByte);
+  private int _limitPruned;
+
+  public int getInvalidSegments() {
+    return _invalidSegments;
+  }
+
+  public void setInvalidSegments(int invalidSegments) {
+    _invalidSegments = invalidSegments;
+  }
+
+  public int getValuePruned() {
+    return _valuePruned;
+  }
+
+  public void setValuePruned(int valuePruned) {
+    _valuePruned = valuePruned;
+  }
+
+  public int getLimitPruned() {
+    return _limitPruned;
+  }
+
+  public void setLimitPruned(int limitPruned) {
+    _limitPruned = limitPruned;
   }
 }

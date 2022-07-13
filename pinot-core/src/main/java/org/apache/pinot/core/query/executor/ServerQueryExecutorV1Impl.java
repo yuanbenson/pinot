@@ -47,6 +47,7 @@ import org.apache.pinot.core.common.ExplainPlanRowData;
 import org.apache.pinot.core.common.ExplainPlanRows;
 import org.apache.pinot.core.common.Operator;
 import org.apache.pinot.core.common.datatable.DataTableBuilder;
+import org.apache.pinot.core.common.datatable.DataTableFactory;
 import org.apache.pinot.core.common.datatable.DataTableUtils;
 import org.apache.pinot.core.data.manager.InstanceDataManager;
 import org.apache.pinot.core.operator.filter.EmptyFilterOperator;
@@ -57,6 +58,7 @@ import org.apache.pinot.core.plan.maker.PlanMaker;
 import org.apache.pinot.core.query.aggregation.function.AggregationFunction;
 import org.apache.pinot.core.query.config.QueryExecutorConfig;
 import org.apache.pinot.core.query.pruner.SegmentPrunerService;
+import org.apache.pinot.core.query.pruner.SegmentPrunerStatistics;
 import org.apache.pinot.core.query.request.ServerQueryRequest;
 import org.apache.pinot.core.query.request.context.QueryContext;
 import org.apache.pinot.core.query.request.context.TimerContext;
@@ -168,7 +170,7 @@ public class ServerQueryExecutorV1Impl implements QueryExecutor {
       String errorMessage =
           String.format("Query scheduling took %dms (longer than query timeout of %dms) on server: %s",
               querySchedulingTimeMs, queryTimeoutMs, _instanceDataManager.getInstanceId());
-      DataTable dataTable = DataTableBuilder.getEmptyDataTable();
+      DataTable dataTable = DataTableFactory.getEmptyDataTable();
       dataTable.addException(QueryException.getException(QueryException.QUERY_SCHEDULING_TIMEOUT_ERROR, errorMessage));
       LOGGER.error("{} while processing requestId: {}", errorMessage, requestId);
       return dataTable;
@@ -178,7 +180,7 @@ public class ServerQueryExecutorV1Impl implements QueryExecutor {
     if (tableDataManager == null) {
       String errorMessage = String.format("Failed to find table: %s on server: %s", tableNameWithType,
           _instanceDataManager.getInstanceId());
-      DataTable dataTable = DataTableBuilder.getEmptyDataTable();
+      DataTable dataTable = DataTableFactory.getEmptyDataTable();
       dataTable.addException(QueryException.getException(QueryException.SERVER_TABLE_MISSING_ERROR, errorMessage));
       LOGGER.error("{} while processing requestId: {}", errorMessage, requestId);
       return dataTable;
@@ -226,7 +228,7 @@ public class ServerQueryExecutorV1Impl implements QueryExecutor {
         LOGGER.error("Exception processing requestId {}", requestId, e);
       }
 
-      dataTable = DataTableBuilder.getEmptyDataTable();
+      dataTable = DataTableFactory.getEmptyDataTable();
       dataTable.addException(QueryException.getException(QueryException.QUERY_EXECUTION_ERROR, e));
     } finally {
       for (SegmentDataManager segmentDataManager : segmentDataManagers) {
@@ -288,7 +290,8 @@ public class ServerQueryExecutorV1Impl implements QueryExecutor {
 
     TimerContext.Timer segmentPruneTimer = timerContext.startNewPhaseTimer(ServerQueryPhase.SEGMENT_PRUNING);
     int totalSegments = indexSegments.size();
-    List<IndexSegment> selectedSegments = _segmentPrunerService.prune(indexSegments, queryContext);
+    SegmentPrunerStatistics prunerStats = new SegmentPrunerStatistics();
+    List<IndexSegment> selectedSegments = _segmentPrunerService.prune(indexSegments, queryContext, prunerStats);
     segmentPruneTimer.stopAndRecord();
     int numSelectedSegments = selectedSegments.size();
     LOGGER.debug("Matched {} segments after pruning", numSelectedSegments);
@@ -309,6 +312,7 @@ public class ServerQueryExecutorV1Impl implements QueryExecutor {
       metadata.put(MetadataKey.NUM_SEGMENTS_PROCESSED.getName(), "0");
       metadata.put(MetadataKey.NUM_SEGMENTS_MATCHED.getName(), "0");
       metadata.put(MetadataKey.NUM_SEGMENTS_PRUNED_BY_SERVER.getName(), String.valueOf(totalSegments));
+      addPrunerStats(metadata, prunerStats);
       return dataTable;
     } else {
       TimerContext.Timer planBuildTimer = timerContext.startNewPhaseTimer(ServerQueryPhase.BUILD_QUERY_PLAN);
@@ -321,12 +325,14 @@ public class ServerQueryExecutorV1Impl implements QueryExecutor {
       DataTable dataTable = queryContext.isExplain() ? processExplainPlanQueries(queryPlan) : queryPlan.execute();
       planExecTimer.stopAndRecord();
 
+      Map<String, String> metadata = dataTable.getMetadata();
       // Update the total docs in the metadata based on the un-pruned segments
-      dataTable.getMetadata().put(MetadataKey.TOTAL_DOCS.getName(), Long.toString(numTotalDocs));
+      metadata.put(MetadataKey.TOTAL_DOCS.getName(), Long.toString(numTotalDocs));
 
       // Set the number of pruned segments. This count does not include the segments which returned empty filters
       int prunedSegments = totalSegments - numSelectedSegments;
-      dataTable.getMetadata().put(MetadataKey.NUM_SEGMENTS_PRUNED_BY_SERVER.getName(), String.valueOf(prunedSegments));
+      metadata.put(MetadataKey.NUM_SEGMENTS_PRUNED_BY_SERVER.getName(), String.valueOf(prunedSegments));
+      addPrunerStats(metadata, prunerStats);
 
       return dataTable;
     }
@@ -334,7 +340,7 @@ public class ServerQueryExecutorV1Impl implements QueryExecutor {
 
   /** @return EXPLAIN_PLAN query result {@link DataTable} when no segments get selected for query execution.*/
   private static DataTable getExplainPlanResultsForNoMatchingSegment(int totalNumSegments) {
-    DataTableBuilder dataTableBuilder = new DataTableBuilder(DataSchema.EXPLAIN_RESULT_SCHEMA);
+    DataTableBuilder dataTableBuilder = DataTableFactory.getDataTableBuilder(DataSchema.EXPLAIN_RESULT_SCHEMA);
     try {
       dataTableBuilder.startRow();
       dataTableBuilder.setColumn(0, String.format(ExplainPlanRows.PLAN_START_FORMAT,
@@ -440,7 +446,7 @@ public class ServerQueryExecutorV1Impl implements QueryExecutor {
 
   /** @return EXPLAIN PLAN query result {@link DataTable}. */
   public static DataTable processExplainPlanQueries(Plan queryPlan) {
-    DataTableBuilder dataTableBuilder = new DataTableBuilder(DataSchema.EXPLAIN_RESULT_SCHEMA);
+    DataTableBuilder dataTableBuilder = DataTableFactory.getDataTableBuilder(DataSchema.EXPLAIN_RESULT_SCHEMA);
     List<Operator> childOperators = queryPlan.getPlanNode().run().getChildOperators();
     assert childOperators.size() == 1;
     Operator root = childOperators.get(0);
@@ -573,5 +579,11 @@ public class ServerQueryExecutorV1Impl implements QueryExecutor {
         handleSubquery(argument, indexSegments, timerContext, executorService, endTimeMs);
       }
     }
+  }
+
+  private void addPrunerStats(Map<String, String> metadata, SegmentPrunerStatistics prunerStats) {
+    metadata.put(MetadataKey.NUM_SEGMENTS_PRUNED_INVALID.getName(), String.valueOf(prunerStats.getInvalidSegments()));
+    metadata.put(MetadataKey.NUM_SEGMENTS_PRUNED_BY_LIMIT.getName(), String.valueOf(prunerStats.getLimitPruned()));
+    metadata.put(MetadataKey.NUM_SEGMENTS_PRUNED_BY_VALUE.getName(), String.valueOf(prunerStats.getValuePruned()));
   }
 }

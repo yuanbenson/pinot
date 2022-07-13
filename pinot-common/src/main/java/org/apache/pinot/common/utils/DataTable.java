@@ -26,6 +26,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 import org.apache.pinot.common.response.ProcessingException;
 import org.apache.pinot.spi.utils.ByteArray;
+import org.roaringbitmap.RoaringBitmap;
 
 
 /**
@@ -76,6 +77,8 @@ public interface DataTable {
 
   String[] getStringArray(int rowId, int colId);
 
+  RoaringBitmap getNullRowIds(int colId);
+
   DataTable toMetadataOnlyDataTable();
 
   DataTable toDataOnlyDataTable();
@@ -113,6 +116,9 @@ public interface DataTable {
     SYSTEM_ACTIVITIES_CPU_TIME_NS("systemActivitiesCpuTimeNs", MetadataValueType.LONG),
     RESPONSE_SER_CPU_TIME_NS("responseSerializationCpuTimeNs", MetadataValueType.LONG),
     NUM_SEGMENTS_PRUNED_BY_SERVER("numSegmentsPrunedByServer", MetadataValueType.INT),
+    NUM_SEGMENTS_PRUNED_INVALID("numSegmentsPrunedByInvalid", MetadataValueType.INT),
+    NUM_SEGMENTS_PRUNED_BY_LIMIT("numSegmentsPrunedByLimit", MetadataValueType.INT),
+    NUM_SEGMENTS_PRUNED_BY_VALUE("numSegmentsPrunedByValue", MetadataValueType.INT),
     EXPLAIN_PLAN_NUM_EMPTY_FILTER_SEGMENTS("explainPlanNumEmptyFilterSegments", MetadataValueType.INT),
     EXPLAIN_PLAN_NUM_MATCH_ALL_FILTER_SEGMENTS("explainPlanNumMatchAllFilterSegments", MetadataValueType.INT);
 
