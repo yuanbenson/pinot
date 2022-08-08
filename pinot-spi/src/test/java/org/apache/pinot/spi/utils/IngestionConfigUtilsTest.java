@@ -103,7 +103,7 @@ public class IngestionConfigUtilsTest {
   public void testGetPushFrequency() {
     // get from ingestion config, when not present in segmentsConfig
     IngestionConfig ingestionConfig = new IngestionConfig();
-    ingestionConfig.setBatchIngestionConfig(new BatchIngestionConfig(null, "APPEND", "HOURLY"));
+    ingestionConfig.setBatchIngestionConfig(new BatchIngestionConfig(null, "APPEND", "HOURLY", false, false));
     TableConfig tableConfig =
         new TableConfigBuilder(TableType.OFFLINE).setTableName("myTable").setIngestionConfig(ingestionConfig).build();
     Assert.assertEquals(IngestionConfigUtils.getBatchSegmentIngestionFrequency(tableConfig), "HOURLY");
@@ -129,7 +129,7 @@ public class IngestionConfigUtilsTest {
   public void testGetPushType() {
     // get from ingestion config, when not present in segmentsConfig
     IngestionConfig ingestionConfig = new IngestionConfig();
-    ingestionConfig.setBatchIngestionConfig(new BatchIngestionConfig(null, "APPEND", "HOURLY"));
+    ingestionConfig.setBatchIngestionConfig(new BatchIngestionConfig(null, "APPEND", "HOURLY", false, false));
     TableConfig tableConfig =
         new TableConfigBuilder(TableType.OFFLINE).setTableName("myTable").setIngestionConfig(ingestionConfig).build();
     Assert.assertEquals(IngestionConfigUtils.getBatchSegmentIngestionType(tableConfig), "APPEND");

@@ -73,7 +73,7 @@ public class FileBasedSegmentWriterTest {
     _ingestionConfig = new IngestionConfig();
     _ingestionConfig.setBatchIngestionConfig(new BatchIngestionConfig(Collections.singletonList(
         Collections.singletonMap(BatchConfigProperties.OUTPUT_DIR_URI, _outputDir.getAbsolutePath())), "APPEND",
-        "HOURLY"));
+        "HOURLY", false, false));
     _ingestionConfig.setTransformConfigs(Arrays.asList(new TransformConfig("aSimpleMap_str", "jsonFormat(aSimpleMap)"),
         new TransformConfig("anAdvancedMap_str", "jsonFormat(anAdvancedMap)")));
     _tableConfig =
@@ -119,15 +119,7 @@ public class FileBasedSegmentWriterTest {
       // expected
     }
 
-    ingestionConfig.setBatchIngestionConfig(new BatchIngestionConfig(null, "APPEND", "HOURLY"));
-    try {
-      segmentWriter.init(tableConfig, _schema);
-      Assert.fail("Should fail due to missing batchConfigMaps");
-    } catch (IllegalStateException e) {
-      // expected
-    }
-
-    ingestionConfig.setBatchIngestionConfig(new BatchIngestionConfig(Collections.emptyList(), "APPEND", "HOURLY"));
+    ingestionConfig.setBatchIngestionConfig(new BatchIngestionConfig(null, "APPEND", "HOURLY", false, false));
     try {
       segmentWriter.init(tableConfig, _schema);
       Assert.fail("Should fail due to missing batchConfigMaps");
@@ -136,7 +128,16 @@ public class FileBasedSegmentWriterTest {
     }
 
     ingestionConfig.setBatchIngestionConfig(
-        new BatchIngestionConfig(Collections.singletonList(Collections.emptyMap()), "APPEND", "HOURLY"));
+        new BatchIngestionConfig(Collections.emptyList(), "APPEND", "HOURLY", false, false));
+    try {
+      segmentWriter.init(tableConfig, _schema);
+      Assert.fail("Should fail due to missing batchConfigMaps");
+    } catch (IllegalStateException e) {
+      // expected
+    }
+
+    ingestionConfig.setBatchIngestionConfig(
+        new BatchIngestionConfig(Collections.singletonList(Collections.emptyMap()), "APPEND", "HOURLY", false, false));
     try {
       segmentWriter.init(tableConfig, _schema);
       Assert.fail("Should fail due to missing outputDirURI in batchConfigMap");
@@ -146,7 +147,7 @@ public class FileBasedSegmentWriterTest {
 
     ingestionConfig.setBatchIngestionConfig(new BatchIngestionConfig(Collections.singletonList(
         Collections.singletonMap(BatchConfigProperties.OUTPUT_DIR_URI, _outputDir.getAbsolutePath())), "APPEND",
-        "HOURLY"));
+        "HOURLY", false, false));
     segmentWriter.init(tableConfig, _schema);
     segmentWriter.close();
   }
@@ -243,7 +244,7 @@ public class FileBasedSegmentWriterTest {
         BatchConfigProperties.SEGMENT_NAME), "customSegmentName");
     IngestionConfig ingestionConfig = new IngestionConfig();
     ingestionConfig.setBatchIngestionConfig(
-        new BatchIngestionConfig(Collections.singletonList(batchConfigMap), "APPEND", "HOURLY"));
+        new BatchIngestionConfig(Collections.singletonList(batchConfigMap), "APPEND", "HOURLY", false, false));
     ingestionConfig.setTransformConfigs(_ingestionConfig.getTransformConfigs());
     TableConfig tableConfig =
         new TableConfigBuilder(TableType.OFFLINE).setTableName(TABLE_NAME).setTimeColumnName(TIME_COLUMN_NAME)
@@ -314,7 +315,7 @@ public class FileBasedSegmentWriterTest {
     batchConfigMap.put(BatchConfigProperties.OVERWRITE_OUTPUT, "true");
     IngestionConfig ingestionConfig = new IngestionConfig();
     ingestionConfig.setBatchIngestionConfig(
-        new BatchIngestionConfig(Collections.singletonList(batchConfigMap), "APPEND", "HOURLY"));
+        new BatchIngestionConfig(Collections.singletonList(batchConfigMap), "APPEND", "HOURLY", false, false));
     ingestionConfig.setTransformConfigs(_ingestionConfig.getTransformConfigs());
     TableConfig tableConfig =
         new TableConfigBuilder(TableType.OFFLINE).setTableName(TABLE_NAME).setTimeColumnName(TIME_COLUMN_NAME)

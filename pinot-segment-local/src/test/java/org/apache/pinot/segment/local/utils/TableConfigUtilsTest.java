@@ -552,7 +552,7 @@ public class TableConfigUtilsTest {
     IngestionConfig ingestionConfig = new IngestionConfig();
     // TODO: Check if we should allow duplicate config maps
     ingestionConfig.setBatchIngestionConfig(
-        new BatchIngestionConfig(Arrays.asList(batchConfigMap, batchConfigMap), null, null));
+        new BatchIngestionConfig(Arrays.asList(batchConfigMap, batchConfigMap), null, null, false, false));
     TableConfig tableConfig =
         new TableConfigBuilder(TableType.OFFLINE).setTableName(TABLE_NAME).setIngestionConfig(ingestionConfig).build();
     TableConfigUtils.validateIngestionConfig(tableConfig, null);
@@ -571,7 +571,7 @@ public class TableConfigUtilsTest {
     // valid dimension table ingestion config
     IngestionConfig ingestionConfig = new IngestionConfig();
     ingestionConfig.setBatchIngestionConfig(
-        new BatchIngestionConfig(Collections.singletonList(batchConfigMap), "REFRESH", null));
+        new BatchIngestionConfig(Collections.singletonList(batchConfigMap), "REFRESH", null, false, false));
     TableConfig tableConfig = new TableConfigBuilder(TableType.OFFLINE).setTableName(TABLE_NAME).setIsDimTable(true)
         .setIngestionConfig(ingestionConfig).build();
     TableConfigUtils.validateIngestionConfig(tableConfig, null);
@@ -587,7 +587,7 @@ public class TableConfigUtilsTest {
 
     // dimension tables should have batch ingestion config of type REFRESH
     ingestionConfig.setBatchIngestionConfig(
-        new BatchIngestionConfig(Collections.singletonList(batchConfigMap), "APPEND", null));
+        new BatchIngestionConfig(Collections.singletonList(batchConfigMap), "APPEND", null, false, false));
     try {
       TableConfigUtils.validateIngestionConfig(tableConfig, null);
       Assert.fail("Should fail for Dimension table with ingestion type APPEND (should be REFRESH)");

@@ -86,6 +86,34 @@ public final class IngestionConfigUtils {
   }
 
   /**
+   * Fetches the configured consistentDataPush boolean from the table config
+   */
+  public static boolean getBatchSegmentIngestionConsistentDataPushEnabled(TableConfig tableConfig) {
+    boolean consistentDataPush = false;
+    if (tableConfig.getIngestionConfig() != null) {
+      BatchIngestionConfig batchIngestionConfig = tableConfig.getIngestionConfig().getBatchIngestionConfig();
+      if (batchIngestionConfig != null) {
+        consistentDataPush = batchIngestionConfig.getConsistentDataPush();
+      }
+    }
+    return consistentDataPush;
+  }
+
+  /**
+   * Fetches the configured disableUniqueSegmentNames boolean from the table config
+   */
+  public static boolean getBatchSegmentIngestionDisableUniqueSegmentNames(TableConfig tableConfig) {
+    boolean disableUniqueSegmentNames = false;
+    if (tableConfig.getIngestionConfig() != null) {
+      BatchIngestionConfig batchIngestionConfig = tableConfig.getIngestionConfig().getBatchIngestionConfig();
+      if (batchIngestionConfig != null) {
+        disableUniqueSegmentNames = batchIngestionConfig.getDisableUniqueSegmentNames();
+      }
+    }
+    return disableUniqueSegmentNames;
+  }
+
+  /**
    * Fetches the configured segmentIngestionType (APPEND/REFRESH) from the table config
    * First checks in the ingestionConfig. If not found, checks in the segmentsConfig (has been deprecated from here
    * in favor of ingestion

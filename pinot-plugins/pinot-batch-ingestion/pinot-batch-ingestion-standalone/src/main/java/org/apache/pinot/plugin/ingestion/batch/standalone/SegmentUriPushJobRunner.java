@@ -23,7 +23,10 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import org.apache.pinot.segment.local.utils.ConsistentDataPushUtils;
 import org.apache.pinot.segment.local.utils.SegmentPushUtils;
 import org.apache.pinot.spi.env.PinotConfiguration;
 import org.apache.pinot.spi.filesystem.PinotFS;
@@ -32,8 +35,6 @@ import org.apache.pinot.spi.ingestion.batch.runner.IngestionJobRunner;
 import org.apache.pinot.spi.ingestion.batch.spec.Constants;
 import org.apache.pinot.spi.ingestion.batch.spec.PinotFSSpec;
 import org.apache.pinot.spi.ingestion.batch.spec.SegmentGenerationJobSpec;
-import org.apache.pinot.spi.utils.retry.AttemptsExceededException;
-import org.apache.pinot.spi.utils.retry.RetriableOperationException;
 
 
 public class SegmentUriPushJobRunner implements IngestionJobRunner {
@@ -92,9 +93,14 @@ public class SegmentUriPushJobRunner implements IngestionJobRunner {
         segmentUris.add(updatedURI.toString());
       }
     }
+    Map<URI, String> uriToLineageEntryIdMap = new HashMap<>();
     try {
+      uriToLineageEntryIdMap =
+          ConsistentDataPushUtils.preUpload(_spec, ConsistentDataPushUtils.getTarSegmentsTo(segmentUris));
       SegmentPushUtils.sendSegmentUris(_spec, segmentUris);
-    } catch (RetriableOperationException | AttemptsExceededException e) {
+      ConsistentDataPushUtils.postUpload(_spec, uriToLineageEntryIdMap);
+    } catch (Exception e) {
+      ConsistentDataPushUtils.handleUploadException(_spec, uriToLineageEntryIdMap, e);
       throw new RuntimeException(e);
     }
   }

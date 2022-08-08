@@ -22,6 +22,7 @@ import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -203,11 +204,16 @@ public final class IngestionUtils {
 
     List<String> segmentTarURIStrs = segmentTarURIs.stream().map(URI::toString).collect(Collectors.toList());
     String pushMode = batchConfig.getPushMode();
+    Map<URI, String> uriToLineageEntryIdMap = new HashMap<>();
     switch (BatchConfigProperties.SegmentPushType.valueOf(pushMode.toUpperCase())) {
       case TAR:
         try {
+          uriToLineageEntryIdMap = ConsistentDataPushUtils.preUpload(segmentUploadSpec,
+              ConsistentDataPushUtils.getTarSegmentsTo(segmentTarURIStrs));
           SegmentPushUtils.pushSegments(segmentUploadSpec, LOCAL_PINOT_FS, segmentTarURIStrs);
+          ConsistentDataPushUtils.postUpload(segmentUploadSpec, uriToLineageEntryIdMap);
         } catch (RetriableOperationException | AttemptsExceededException e) {
+          ConsistentDataPushUtils.handleUploadException(segmentUploadSpec, uriToLineageEntryIdMap, e);
           throw new RuntimeException(String
               .format("Caught exception while uploading segments. Push mode: TAR, segment tars: [%s]",
                   segmentTarURIStrs), e);
@@ -226,8 +232,12 @@ public final class IngestionUtils {
                 segmentUploadSpec.getPushJobSpec().getSegmentUriSuffix());
             segmentUris.add(updatedURI.toString());
           }
+          uriToLineageEntryIdMap = ConsistentDataPushUtils.preUpload(segmentUploadSpec,
+              ConsistentDataPushUtils.getTarSegmentsTo(segmentUris));
           SegmentPushUtils.sendSegmentUris(segmentUploadSpec, segmentUris);
+          ConsistentDataPushUtils.postUpload(segmentUploadSpec, uriToLineageEntryIdMap);
         } catch (RetriableOperationException | AttemptsExceededException e) {
+          ConsistentDataPushUtils.handleUploadException(segmentUploadSpec, uriToLineageEntryIdMap, e);
           throw new RuntimeException(String
               .format("Caught exception while uploading segments. Push mode: URI, segment URIs: [%s]", segmentUris), e);
         }
@@ -239,10 +249,15 @@ public final class IngestionUtils {
             outputSegmentDirURI = URI.create(batchConfig.getOutputSegmentDirURI());
           }
           PinotFS outputFileFS = getOutputPinotFS(batchConfig, outputSegmentDirURI);
-          Map<String, String> segmentUriToTarPathMap = SegmentPushUtils.getSegmentUriToTarPathMap(outputSegmentDirURI,
-              segmentUploadSpec.getPushJobSpec(), segmentTarURIStrs.toArray(new String[0]));
+          Map<String, String> segmentUriToTarPathMap =
+              SegmentPushUtils.getSegmentUriToTarPathMap(outputSegmentDirURI, segmentUploadSpec.getPushJobSpec(),
+                  segmentTarURIStrs.toArray(new String[0]));
+          uriToLineageEntryIdMap = ConsistentDataPushUtils.preUpload(segmentUploadSpec,
+              ConsistentDataPushUtils.getMetadataSegmentsTo(segmentUriToTarPathMap));
           SegmentPushUtils.sendSegmentUriAndMetadata(segmentUploadSpec, outputFileFS, segmentUriToTarPathMap);
+          ConsistentDataPushUtils.postUpload(segmentUploadSpec, uriToLineageEntryIdMap);
         } catch (RetriableOperationException | AttemptsExceededException e) {
+          ConsistentDataPushUtils.handleUploadException(segmentUploadSpec, uriToLineageEntryIdMap, e);
           throw new RuntimeException(String
               .format("Caught exception while uploading segments. Push mode: METADATA, segment URIs: [%s]",
                   segmentTarURIStrs), e);

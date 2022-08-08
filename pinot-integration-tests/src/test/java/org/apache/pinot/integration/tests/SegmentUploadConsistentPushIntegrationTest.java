@@ -19,80 +19,25 @@
 package org.apache.pinot.integration.tests;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 import java.io.File;
-import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Map;
-import javax.annotation.Nullable;
 import org.apache.commons.io.FileUtils;
 import org.apache.pinot.plugin.ingestion.batch.standalone.SegmentMetadataPushJobRunner;
 import org.apache.pinot.spi.config.table.TableConfig;
-import org.apache.pinot.spi.config.table.TableType;
+import org.apache.pinot.spi.config.table.ingestion.BatchIngestionConfig;
+import org.apache.pinot.spi.config.table.ingestion.IngestionConfig;
 import org.apache.pinot.spi.data.Schema;
 import org.apache.pinot.spi.ingestion.batch.spec.PinotClusterSpec;
 import org.apache.pinot.spi.ingestion.batch.spec.PinotFSSpec;
 import org.apache.pinot.spi.ingestion.batch.spec.PushJobSpec;
 import org.apache.pinot.spi.ingestion.batch.spec.SegmentGenerationJobSpec;
 import org.apache.pinot.spi.ingestion.batch.spec.TableSpec;
-import org.apache.pinot.spi.utils.JsonUtils;
-import org.apache.pinot.util.TestUtils;
 import org.testng.Assert;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-
-/**
- * Test for advanced push types.
- * Currently only tests METADATA push type.
- * todo: add test for URI push
- */
-public class SegmentUploadIntegrationTest extends BaseClusterIntegrationTest {
-
-  @Override
-  protected Map<String, String> getStreamConfigs() {
-    return null;
-  }
-
-  @Override
-  protected String getSortedColumn() {
-    return null;
-  }
-
-  @Override
-  protected List<String> getInvertedIndexColumns() {
-    return null;
-  }
-
-  @Override
-  protected List<String> getNoDictionaryColumns() {
-    return null;
-  }
-
-  @Override
-  protected List<String> getRangeIndexColumns() {
-    return null;
-  }
-
-  @Override
-  protected List<String> getBloomFilterColumns() {
-    return null;
-  }
-
-  @BeforeClass
-  public void setUp()
-      throws Exception {
-    TestUtils.ensureDirectoriesExistAndEmpty(_tempDir, _segmentDir, _tarDir);
-    // Start Zk and Kafka
-    startZk();
-
-    // Start the Pinot cluster
-    startController();
-    startBroker();
-    startServer();
-  }
+public class SegmentUploadConsistentPushIntegrationTest extends SegmentUploadIntegrationTest {
 
   @Test
   public void testUploadAndQuery()
@@ -101,7 +46,10 @@ public class SegmentUploadIntegrationTest extends BaseClusterIntegrationTest {
     Schema schema = createSchema();
     addSchema(schema);
     TableConfig offlineTableConfig = createOfflineTableConfig();
+    offlineTableConfig.setIngestionConfig(offlineTableConfig.getIngestionConfig());
     addTableConfig(offlineTableConfig);
+    File tableConfigFile = new File(_tempDir, "tableConfig");
+    FileUtils.write(tableConfigFile, offlineTableConfig.toJsonString(), StandardCharsets.UTF_8);
 
     List<File> avroFiles = getAllAvroFiles();
 
@@ -122,6 +70,7 @@ public class SegmentUploadIntegrationTest extends BaseClusterIntegrationTest {
     jobSpec.setOutputDirURI(_tarDir.getAbsolutePath());
     TableSpec tableSpec = new TableSpec();
     tableSpec.setTableName(DEFAULT_TABLE_NAME);
+    tableSpec.setTableConfigURI(tableConfigFile.toURI().toString());
     jobSpec.setTableSpec(tableSpec);
     PinotClusterSpec clusterSpec = new PinotClusterSpec();
     clusterSpec.setControllerURI(_controllerBaseApiUrl);
@@ -184,46 +133,15 @@ public class SegmentUploadIntegrationTest extends BaseClusterIntegrationTest {
       }
     }
     Assert.assertNotNull(segmentNameWithoutMove);
-    numDocs += getNumDocs(segmentNameWithoutMove);
+    numDocs = getNumDocs(segmentNameWithoutMove);
     testCountStar(numDocs);
   }
 
-  protected long getNumDocs(String segmentName)
-      throws IOException {
-    return JsonUtils.stringToJsonNode(
-            sendGetRequest(_controllerRequestURLBuilder.forSegmentMetadata(DEFAULT_TABLE_NAME, segmentName)))
-        .get("segment.total.docs").asLong();
-  }
-
-  protected JsonNode getSegmentsList()
-      throws IOException {
-    return JsonUtils.stringToJsonNode(sendGetRequest(
-            _controllerRequestURLBuilder.forSegmentListAPIWithTableType(DEFAULT_TABLE_NAME,
-                TableType.OFFLINE.toString())))
-        .get(0).get("OFFLINE");
-  }
-
-  protected void testCountStar(final long countStarResult) {
-    TestUtils.waitForCondition(new Function<Void, Boolean>() {
-      @Nullable
-      @Override
-      public Boolean apply(@Nullable Void aVoid) {
-        try {
-          return getCurrentCountStarResult() == countStarResult;
-        } catch (Exception e) {
-          return null;
-        }
-      }
-    }, 100L, 300_000, "Failed to load " + countStarResult + " documents", true);
-  }
-
-  @AfterClass
-  public void tearDown()
-      throws Exception {
-    dropOfflineTable(getTableName());
-    stopServer();
-    stopBroker();
-    stopController();
-    stopZk();
+  @Override
+  protected IngestionConfig getIngestionConfig() {
+    IngestionConfig ingestionConfig = new IngestionConfig();
+    ingestionConfig.setBatchIngestionConfig(
+        new BatchIngestionConfig(null, "REFRESH", "DAILY", true, false));
+    return ingestionConfig;
   }
 }

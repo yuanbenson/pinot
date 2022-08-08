@@ -22,8 +22,10 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.pinot.segment.local.utils.ConsistentDataPushUtils;
 import org.apache.pinot.segment.local.utils.SegmentPushUtils;
 import org.apache.pinot.spi.env.PinotConfiguration;
 import org.apache.pinot.spi.filesystem.PinotFS;
@@ -81,9 +83,14 @@ public class SegmentMetadataPushJobRunner implements IngestionJobRunner {
     }
     Map<String, String> segmentUriToTarPathMap =
         SegmentPushUtils.getSegmentUriToTarPathMap(outputDirURI, _spec.getPushJobSpec(), files);
+    Map<URI, String> uriToLineageEntryIdMap = new HashMap<>();
     try {
+      uriToLineageEntryIdMap = ConsistentDataPushUtils.preUpload(_spec,
+          ConsistentDataPushUtils.getMetadataSegmentsTo(segmentUriToTarPathMap));
       SegmentPushUtils.sendSegmentUriAndMetadata(_spec, outputDirFS, segmentUriToTarPathMap);
+      ConsistentDataPushUtils.postUpload(_spec, uriToLineageEntryIdMap);
     } catch (Exception e) {
+      ConsistentDataPushUtils.handleUploadException(_spec, uriToLineageEntryIdMap, e);
       throw new RuntimeException(e);
     }
   }

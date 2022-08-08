@@ -18,6 +18,7 @@
  */
 package org.apache.pinot.common.utils;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,6 +27,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -57,6 +59,7 @@ import org.apache.pinot.spi.config.table.TableType;
 import org.apache.pinot.spi.utils.CommonConstants;
 import org.apache.pinot.spi.utils.JsonUtils;
 import org.apache.pinot.spi.utils.StringUtil;
+import org.apache.pinot.spi.utils.builder.ControllerRequestURLBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -745,6 +748,33 @@ public class FileUploadDownloadClient implements AutoCloseable {
     NameValuePair tableNameValuePair = new BasicNameValuePair(QueryParameters.TABLE_NAME, rawTableName);
     List<NameValuePair> parameters = Arrays.asList(tableNameValuePair);
     return uploadSegment(uri, segmentName, inputStream, null, parameters, HttpClient.DEFAULT_SOCKET_TIMEOUT_MS);
+  }
+
+  public List<String> getSegments(URI uri, String rawTableName, String tableType, boolean excludeReplacedSegments)
+      throws URISyntaxException, IOException, HttpErrorStatusException {
+    ControllerRequestURLBuilder controllerRequestURLBuilder = ControllerRequestURLBuilder.baseUrl(uri.toString());
+    RequestBuilder requestBuilder = RequestBuilder.get(
+        controllerRequestURLBuilder.forSegmentListAPIWithTableTypeAndExcludeReplacedSegments(rawTableName, tableType,
+            excludeReplacedSegments)).setVersion(HttpVersion.HTTP_1_1);
+    HttpClient.setTimeout(requestBuilder, HttpClient.DEFAULT_SOCKET_TIMEOUT_MS);
+    SimpleHttpResponse response = HttpClient.wrapAndThrowHttpException(_httpClient.sendRequest(requestBuilder.build()));
+    String responseString = response.getResponse();
+    JsonNode responseJsonNode = JsonUtils.stringToJsonNode(responseString);
+    Iterator<JsonNode> responseElements = responseJsonNode.elements();
+    List<String> segments = new ArrayList<>();
+    while (responseElements.hasNext()) {
+      JsonNode responseElementJsonNode = responseElements.next();
+      if (!responseElementJsonNode.has(tableType)) {
+        continue;
+      }
+      JsonNode offlineJsonArray = responseElementJsonNode.get(tableType);
+      Iterator<JsonNode> elements = offlineJsonArray.elements();
+      while (elements.hasNext()) {
+        JsonNode segmentJsonNode = elements.next();
+        segments.add(segmentJsonNode.asText());
+      }
+    }
+    return segments;
   }
 
   /**
