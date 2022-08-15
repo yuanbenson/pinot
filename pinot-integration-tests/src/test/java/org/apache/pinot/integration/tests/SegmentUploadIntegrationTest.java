@@ -122,6 +122,7 @@ public class SegmentUploadIntegrationTest extends BaseClusterIntegrationTest {
     jobSpec.setOutputDirURI(_tarDir.getAbsolutePath());
     TableSpec tableSpec = new TableSpec();
     tableSpec.setTableName(DEFAULT_TABLE_NAME);
+    tableSpec.setTableConfigURI(_controllerRequestURLBuilder.forUpdateTableConfig(DEFAULT_TABLE_NAME));
     jobSpec.setTableSpec(tableSpec);
     PinotClusterSpec clusterSpec = new PinotClusterSpec();
     clusterSpec.setControllerURI(_controllerBaseApiUrl);

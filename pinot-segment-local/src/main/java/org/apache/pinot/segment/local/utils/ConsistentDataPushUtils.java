@@ -40,6 +40,7 @@ import org.apache.pinot.common.utils.http.HttpClient;
 import org.apache.pinot.spi.auth.AuthProvider;
 import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.config.table.TableType;
+import org.apache.pinot.spi.filesystem.PinotFS;
 import org.apache.pinot.spi.ingestion.batch.spec.Constants;
 import org.apache.pinot.spi.ingestion.batch.spec.PinotClusterSpec;
 import org.apache.pinot.spi.ingestion.batch.spec.SegmentGenerationJobSpec;
@@ -50,6 +51,7 @@ import org.apache.pinot.spi.utils.retry.RetryPolicies;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+
 public class ConsistentDataPushUtils {
   private ConsistentDataPushUtils() {
   }
@@ -57,6 +59,46 @@ public class ConsistentDataPushUtils {
   private static final Logger LOGGER = LoggerFactory.getLogger(SegmentPushUtils.class);
   private static final FileUploadDownloadClient FILE_UPLOAD_DOWNLOAD_CLIENT = new FileUploadDownloadClient();
   public static final String SEGMENT_NAME_POSTFIX = "segment.name.postfix";
+
+  public static void pushSegmentsTar(SegmentGenerationJobSpec spec, PinotFS outputDirFS, List<String> segmentsToPush) {
+    Map<URI, String> uriToLineageEntryIdMap = new HashMap<>();
+    try {
+      uriToLineageEntryIdMap =
+          ConsistentDataPushUtils.preUpload(spec, ConsistentDataPushUtils.getTarSegmentsTo(segmentsToPush));
+      SegmentPushUtils.pushSegments(spec, outputDirFS, segmentsToPush);
+      ConsistentDataPushUtils.postUpload(spec, uriToLineageEntryIdMap);
+    } catch (Exception e) {
+      ConsistentDataPushUtils.handleUploadException(spec, uriToLineageEntryIdMap, e);
+      throw new RuntimeException(e);
+    }
+  }
+
+  public static void pushSegmentsUris(SegmentGenerationJobSpec spec, List<String> segmentUris) {
+    Map<URI, String> uriToLineageEntryIdMap = new HashMap<>();
+    try {
+      uriToLineageEntryIdMap =
+          ConsistentDataPushUtils.preUpload(spec, ConsistentDataPushUtils.getTarSegmentsTo(segmentUris));
+      SegmentPushUtils.sendSegmentUris(spec, segmentUris);
+      ConsistentDataPushUtils.postUpload(spec, uriToLineageEntryIdMap);
+    } catch (Exception e) {
+      ConsistentDataPushUtils.handleUploadException(spec, uriToLineageEntryIdMap, e);
+      throw new RuntimeException(e);
+    }
+  }
+
+  public static void pushSegmentsMetadata(SegmentGenerationJobSpec spec, PinotFS outputDirFS,
+      Map<String, String> segmentUriToTarPathMap) {
+    Map<URI, String> uriToLineageEntryIdMap = new HashMap<>();
+    try {
+      uriToLineageEntryIdMap = ConsistentDataPushUtils.preUpload(spec,
+          ConsistentDataPushUtils.getMetadataSegmentsTo(segmentUriToTarPathMap));
+      SegmentPushUtils.sendSegmentUriAndMetadata(spec, outputDirFS, segmentUriToTarPathMap);
+      ConsistentDataPushUtils.postUpload(spec, uriToLineageEntryIdMap);
+    } catch (Exception e) {
+      ConsistentDataPushUtils.handleUploadException(spec, uriToLineageEntryIdMap, e);
+      throw new RuntimeException(e);
+    }
+  }
 
   /**
    * Checks for enablement of consistent data push. If enabled, start consistent data push protocol and

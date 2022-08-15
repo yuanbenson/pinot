@@ -18,27 +18,19 @@
  */
 package org.apache.pinot.plugin.ingestion.batch.hadoop;
 
-import java.io.File;
-import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.commons.lang3.tuple.Triple;
+import org.apache.pinot.segment.local.utils.ConsistentDataPushUtils;
 import org.apache.pinot.segment.local.utils.SegmentPushUtils;
-import org.apache.pinot.spi.env.PinotConfiguration;
 import org.apache.pinot.spi.filesystem.PinotFS;
-import org.apache.pinot.spi.filesystem.PinotFSFactory;
-import org.apache.pinot.spi.ingestion.batch.runner.IngestionJobRunner;
+import org.apache.pinot.spi.ingestion.batch.runner.SegmentPushJobRunner;
 import org.apache.pinot.spi.ingestion.batch.spec.Constants;
-import org.apache.pinot.spi.ingestion.batch.spec.PinotFSSpec;
 import org.apache.pinot.spi.ingestion.batch.spec.SegmentGenerationJobSpec;
-import org.apache.pinot.spi.utils.retry.AttemptsExceededException;
-import org.apache.pinot.spi.utils.retry.RetriableOperationException;
 
-
-public class HadoopSegmentUriPushJobRunner implements IngestionJobRunner, Serializable {
-  private SegmentGenerationJobSpec _spec;
+public class HadoopSegmentUriPushJobRunner extends SegmentPushJobRunner implements Serializable {
 
   public HadoopSegmentUriPushJobRunner() {
   }
@@ -47,41 +39,10 @@ public class HadoopSegmentUriPushJobRunner implements IngestionJobRunner, Serial
     init(spec);
   }
 
-  @Override
-  public void init(SegmentGenerationJobSpec spec) {
-    _spec = spec;
-    if (_spec.getPushJobSpec() == null) {
-      throw new RuntimeException("Missing PushJobSpec");
-    }
-  }
+  public void pushSegments(Triple<String[], PinotFS, URI> fileSysParams) {
+    String[] files = fileSysParams.getLeft();
+    URI outputDirURI = fileSysParams.getRight();
 
-  @Override
-  public void run() {
-    //init all file systems
-    List<PinotFSSpec> pinotFSSpecs = _spec.getPinotFSSpecs();
-    for (PinotFSSpec pinotFSSpec : pinotFSSpecs) {
-      PinotFSFactory.register(pinotFSSpec.getScheme(), pinotFSSpec.getClassName(), new PinotConfiguration(pinotFSSpec));
-    }
-
-    //Get outputFS for writing output Pinot segments
-    URI outputDirURI;
-    try {
-      outputDirURI = new URI(_spec.getOutputDirURI());
-      if (outputDirURI.getScheme() == null) {
-        outputDirURI = new File(_spec.getOutputDirURI()).toURI();
-      }
-    } catch (URISyntaxException e) {
-      throw new RuntimeException("outputDirURI is not valid - '" + _spec.getOutputDirURI() + "'");
-    }
-    PinotFS outputDirFS = PinotFSFactory.create(outputDirURI.getScheme());
-
-    //Get list of files to process
-    String[] files;
-    try {
-      files = outputDirFS.listFiles(outputDirURI, true);
-    } catch (IOException e) {
-      throw new RuntimeException("Unable to list all files under outputDirURI - '" + outputDirURI + "'");
-    }
     List<String> segmentUris = new ArrayList<>();
     for (String file : files) {
       URI uri = URI.create(file);
@@ -92,11 +53,6 @@ public class HadoopSegmentUriPushJobRunner implements IngestionJobRunner, Serial
         segmentUris.add(updatedURI.toString());
       }
     }
-    // Push from driver
-    try {
-      SegmentPushUtils.sendSegmentUris(_spec, segmentUris);
-    } catch (RetriableOperationException | AttemptsExceededException e) {
-      throw new RuntimeException(e);
-    }
+    ConsistentDataPushUtils.pushSegmentsUris(_spec, segmentUris);
   }
 }
