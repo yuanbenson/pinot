@@ -55,7 +55,7 @@ public class SegmentNameGeneratorSpec implements Serializable {
   }
 
   public void addConfig(String key, String val) {
-    Map<String, String> configs = getConfigs().isEmpty() ? new HashMap<>() : getConfigs();
+    Map<String, String> configs = getConfigs();
     configs.put(key, val);
     setConfigs(configs);
   }

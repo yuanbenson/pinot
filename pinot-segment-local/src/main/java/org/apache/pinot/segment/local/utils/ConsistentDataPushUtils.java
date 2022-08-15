@@ -312,8 +312,8 @@ public class ConsistentDataPushUtils {
       List<String> offlineSegments;
       try {
         controllerURI = new URI(pinotClusterSpec.getControllerURI());
-        offlineSegments =
-            FILE_UPLOAD_DOWNLOAD_CLIENT.getSegments(controllerURI, rawTableName, TableType.OFFLINE.toString(), true);
+        Map<String, List<String>> segments = FILE_UPLOAD_DOWNLOAD_CLIENT.getSegments(controllerURI, rawTableName, TableType.OFFLINE.toString(), true);
+        offlineSegments = segments.get(TableType.OFFLINE.toString());
         uriToOfflineSegments.put(controllerURI, offlineSegments);
       } catch (URISyntaxException e) {
         throw new RuntimeException("Got invalid controller uri - '" + pinotClusterSpec.getControllerURI() + "'");
@@ -327,11 +327,14 @@ public class ConsistentDataPushUtils {
   public static void configureSegmentPostfix(SegmentGenerationJobSpec spec) {
     SegmentNameGeneratorSpec segmentNameGeneratorSpec = spec.getSegmentNameGeneratorSpec();
     if (consistentDataPushEnabled(spec) && !uniqueSegmentNameDisabled(spec)) {
-      // Add the current timestamp as the segment postfix to make segment name unique.
+      // Append current timestamp to existing configured segment name postfix, if configured, to make segment name
+      // unique.
       if (segmentNameGeneratorSpec == null) {
         segmentNameGeneratorSpec = new SegmentNameGeneratorSpec();
       }
-      segmentNameGeneratorSpec.addConfig(SEGMENT_NAME_POSTFIX, Long.toString(System.currentTimeMillis()));
+      String existingPostfix = segmentNameGeneratorSpec.getConfigs().getOrDefault(SEGMENT_NAME_POSTFIX, "");
+      segmentNameGeneratorSpec.addConfig(SEGMENT_NAME_POSTFIX,
+          String.join("_", existingPostfix, Long.toString(System.currentTimeMillis())));
       spec.setSegmentNameGeneratorSpec(segmentNameGeneratorSpec);
     }
   }

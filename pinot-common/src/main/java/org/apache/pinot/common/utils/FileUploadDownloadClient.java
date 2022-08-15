@@ -27,6 +27,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +56,7 @@ import org.apache.pinot.common.exception.HttpErrorStatusException;
 import org.apache.pinot.common.restlet.resources.StartReplaceSegmentsRequest;
 import org.apache.pinot.common.utils.http.HttpClient;
 import org.apache.pinot.spi.auth.AuthProvider;
+import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.config.table.TableType;
 import org.apache.pinot.spi.utils.CommonConstants;
 import org.apache.pinot.spi.utils.JsonUtils;
@@ -750,7 +752,11 @@ public class FileUploadDownloadClient implements AutoCloseable {
     return uploadSegment(uri, segmentName, inputStream, null, parameters, HttpClient.DEFAULT_SOCKET_TIMEOUT_MS);
   }
 
-  public List<String> getSegments(URI uri, String rawTableName, String tableType, boolean excludeReplacedSegments)
+  /**
+   * Returns a map from a given tableType to a list of segments for that given tableType (OFFLINE or REALTIME)
+   * If tableType is left unspecified, both OFFLINE and REALTIME segments will be returned in the map.
+   */
+  public Map<String, List<String>> getSegments(URI uri, String rawTableName, @Nullable String tableType, boolean excludeReplacedSegments)
       throws URISyntaxException, IOException, HttpErrorStatusException {
     ControllerRequestURLBuilder controllerRequestURLBuilder = ControllerRequestURLBuilder.baseUrl(uri.toString());
     RequestBuilder requestBuilder = RequestBuilder.get(
@@ -760,21 +766,31 @@ public class FileUploadDownloadClient implements AutoCloseable {
     SimpleHttpResponse response = HttpClient.wrapAndThrowHttpException(_httpClient.sendRequest(requestBuilder.build()));
     String responseString = response.getResponse();
     JsonNode responseJsonNode = JsonUtils.stringToJsonNode(responseString);
-    Iterator<JsonNode> responseElements = responseJsonNode.elements();
-    List<String> segments = new ArrayList<>();
-    while (responseElements.hasNext()) {
-      JsonNode responseElementJsonNode = responseElements.next();
-      if (!responseElementJsonNode.has(tableType)) {
-        continue;
-      }
-      JsonNode offlineJsonArray = responseElementJsonNode.get(tableType);
-      Iterator<JsonNode> elements = offlineJsonArray.elements();
-      while (elements.hasNext()) {
-        JsonNode segmentJsonNode = elements.next();
-        segments.add(segmentJsonNode.asText());
-      }
+    List<String> tableTypes;
+    if (tableType == null || tableType.isEmpty()) {
+      tableTypes = Arrays.asList(TableType.OFFLINE.toString(), TableType.REALTIME.toString());
+    } else {
+      tableTypes = List.of(tableType);
     }
-    return segments;
+    Map<String, List<String>> tableTypeToSegments = new HashMap<>();
+    for (String tableTypeToFilter : tableTypes) {
+      Iterator<JsonNode> responseElements = responseJsonNode.elements();
+      List<String> segments = new ArrayList<>();
+      while (responseElements.hasNext()) {
+        JsonNode responseElementJsonNode = responseElements.next();
+        if (!responseElementJsonNode.has(tableTypeToFilter)) {
+          continue;
+        }
+        JsonNode jsonArray = responseElementJsonNode.get(tableTypeToFilter);
+        Iterator<JsonNode> elements = jsonArray.elements();
+        while (elements.hasNext()) {
+          JsonNode segmentJsonNode = elements.next();
+          segments.add(segmentJsonNode.asText());
+        }
+      }
+      tableTypeToSegments.put(tableTypeToFilter, segments);
+    }
+    return tableTypeToSegments;
   }
 
   /**
