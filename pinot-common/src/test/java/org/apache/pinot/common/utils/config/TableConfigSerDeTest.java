@@ -277,7 +277,7 @@ public class TableConfigSerDeTest {
       IngestionConfig ingestionConfig = new IngestionConfig();
       ingestionConfig.setBatchIngestionConfig(
           new BatchIngestionConfig(Collections.singletonList(Collections.singletonMap("batchType", "s3")), "APPEND",
-              "HOURLY", false, false));
+              "HOURLY", false));
       ingestionConfig.setStreamIngestionConfig(
           new StreamIngestionConfig(Collections.singletonList(Collections.singletonMap("streamType", "kafka"))));
       ingestionConfig.setFilterConfig(new FilterConfig("filterFunc(foo)"));

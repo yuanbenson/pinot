@@ -56,7 +56,6 @@ import org.apache.pinot.common.exception.HttpErrorStatusException;
 import org.apache.pinot.common.restlet.resources.StartReplaceSegmentsRequest;
 import org.apache.pinot.common.utils.http.HttpClient;
 import org.apache.pinot.spi.auth.AuthProvider;
-import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.config.table.TableType;
 import org.apache.pinot.spi.utils.CommonConstants;
 import org.apache.pinot.spi.utils.JsonUtils;
@@ -756,7 +755,8 @@ public class FileUploadDownloadClient implements AutoCloseable {
    * Returns a map from a given tableType to a list of segments for that given tableType (OFFLINE or REALTIME)
    * If tableType is left unspecified, both OFFLINE and REALTIME segments will be returned in the map.
    */
-  public Map<String, List<String>> getSegments(URI uri, String rawTableName, @Nullable String tableType, boolean excludeReplacedSegments)
+  public Map<String, List<String>> getSegments(URI uri, String rawTableName, @Nullable String tableType,
+      boolean excludeReplacedSegments)
       throws URISyntaxException, IOException, HttpErrorStatusException {
     ControllerRequestURLBuilder controllerRequestURLBuilder = ControllerRequestURLBuilder.baseUrl(uri.toString());
     RequestBuilder requestBuilder = RequestBuilder.get(

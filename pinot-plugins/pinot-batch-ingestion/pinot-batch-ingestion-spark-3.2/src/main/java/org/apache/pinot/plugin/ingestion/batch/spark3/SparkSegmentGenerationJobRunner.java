@@ -159,6 +159,7 @@ public class SparkSegmentGenerationJobRunner implements IngestionJobRunner, Seri
       }
       outputDirFS.mkdir(stagingDirURI);
     }
+    ConsistentDataPushUtils.configureSegmentPostfix(_spec);
     try {
       JavaSparkContext sparkContext = JavaSparkContext.fromSparkContext(SparkContext.getOrCreate());
 
@@ -273,7 +274,6 @@ public class SparkSegmentGenerationJobRunner implements IngestionJobRunner, Seri
           taskSpec.setTableConfig(
               SegmentGenerationUtils.getTableConfig(_spec.getTableSpec().getTableConfigURI(), _spec.getAuthToken()));
           taskSpec.setSequenceId(idx);
-          ConsistentDataPushUtils.configureSegmentPostfix(_spec);
           taskSpec.setSegmentNameGeneratorSpec(_spec.getSegmentNameGeneratorSpec());
           taskSpec.setFailOnEmptySegment(_spec.isFailOnEmptySegment());
           taskSpec.setCustomProperty(BatchConfigProperties.INPUT_DATA_FILE_URI_KEY, inputFileURI.toString());

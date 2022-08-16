@@ -112,9 +112,6 @@ public class ConsistentDataPushUtils {
     LOGGER.info("{} consistent push", consistentDataPushEnabled ? "Enabled" : "Disabled");
     Map<URI, String> uriToLineageEntryIdMap = new HashMap<>();
     if (consistentDataPushEnabled) {
-      // Check whether unique segment name should be disabled only when consistent push is enabled.
-      boolean disableUniqueSegmentName = uniqueSegmentNameDisabled(spec);
-      LOGGER.info("{} unique segment name", disableUniqueSegmentName ? "Disabled" : "Enabled");
       LOGGER.info("Start consistent push for table: " + rawTableName);
       Map<URI, List<String>> uriToExistingOfflineSegments = getSelectedOfflineSegments(spec, rawTableName);
       LOGGER.info("Existing segments for table {}: " + uriToExistingOfflineSegments, rawTableName);
@@ -293,13 +290,9 @@ public class ConsistentDataPushUtils {
     TableConfig tableConfig = getTableConfig(spec);
     // Enable consistent data push only if "consistentDataPush" is set to true in batch ingestion config and the
     // table is REFRESH use case.
+    // TODO: Remove the check for REFRESH when we add the consistent push support for APPEND table
     return "REFRESH".equalsIgnoreCase(IngestionConfigUtils.getBatchSegmentIngestionType(tableConfig))
         && IngestionConfigUtils.getBatchSegmentIngestionConsistentDataPushEnabled(tableConfig);
-  }
-
-  public static boolean uniqueSegmentNameDisabled(SegmentGenerationJobSpec spec) {
-    TableConfig tableConfig = getTableConfig(spec);
-    return IngestionConfigUtils.getBatchSegmentIngestionDisableUniqueSegmentNames(tableConfig);
   }
 
   /**
@@ -312,7 +305,8 @@ public class ConsistentDataPushUtils {
       List<String> offlineSegments;
       try {
         controllerURI = new URI(pinotClusterSpec.getControllerURI());
-        Map<String, List<String>> segments = FILE_UPLOAD_DOWNLOAD_CLIENT.getSegments(controllerURI, rawTableName, TableType.OFFLINE.toString(), true);
+        Map<String, List<String>> segments =
+            FILE_UPLOAD_DOWNLOAD_CLIENT.getSegments(controllerURI, rawTableName, TableType.OFFLINE.toString(), true);
         offlineSegments = segments.get(TableType.OFFLINE.toString());
         uriToOfflineSegments.put(controllerURI, offlineSegments);
       } catch (URISyntaxException e) {
@@ -324,9 +318,10 @@ public class ConsistentDataPushUtils {
     return uriToOfflineSegments;
   }
 
+
   public static void configureSegmentPostfix(SegmentGenerationJobSpec spec) {
     SegmentNameGeneratorSpec segmentNameGeneratorSpec = spec.getSegmentNameGeneratorSpec();
-    if (consistentDataPushEnabled(spec) && !uniqueSegmentNameDisabled(spec)) {
+    if (consistentDataPushEnabled(spec)) {
       // Append current timestamp to existing configured segment name postfix, if configured, to make segment name
       // unique.
       if (segmentNameGeneratorSpec == null) {

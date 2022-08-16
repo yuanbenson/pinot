@@ -44,20 +44,15 @@ public class BatchIngestionConfig extends BaseJsonConfig {
   @JsonPropertyDescription("True to enable consistent data push")
   private boolean _consistentDataPush;
 
-  @JsonPropertyDescription("True to disable unique segment names prior to disabling consistent data push")
-  private boolean _disableUniqueSegmentNames;
-
   @JsonCreator
   public BatchIngestionConfig(@JsonProperty("batchConfigMaps") @Nullable List<Map<String, String>> batchConfigMaps,
       @JsonProperty("segmentIngestionType") String segmentIngestionType,
       @JsonProperty("segmentIngestionFrequency") String segmentIngestionFrequency,
-      @JsonProperty("consistentDataPush") boolean consistentDataPush,
-      @JsonProperty("disableUniqueSegmentNames") boolean disableUniqueSegmentNames) {
+      @JsonProperty("consistentDataPush") boolean consistentDataPush) {
     _batchConfigMaps = batchConfigMaps;
     _segmentIngestionType = segmentIngestionType;
     _segmentIngestionFrequency = segmentIngestionFrequency;
     _consistentDataPush = consistentDataPush;
-    _disableUniqueSegmentNames = disableUniqueSegmentNames;
   }
 
   @Nullable
@@ -77,10 +72,6 @@ public class BatchIngestionConfig extends BaseJsonConfig {
     return _consistentDataPush;
   }
 
-  public boolean getDisableUniqueSegmentNames() {
-    return _disableUniqueSegmentNames;
-  }
-
   public void setBatchConfigMaps(List<Map<String, String>> batchConfigMaps) {
     _batchConfigMaps = batchConfigMaps;
   }
@@ -95,9 +86,5 @@ public class BatchIngestionConfig extends BaseJsonConfig {
 
   public void setConsistentDataPush(boolean consistentDataPush) {
     _consistentDataPush = consistentDataPush;
-  }
-
-  public void setDisableUniqueSegmentNames(boolean disableUniqueSegmentNames) {
-    _disableUniqueSegmentNames = disableUniqueSegmentNames;
   }
 }

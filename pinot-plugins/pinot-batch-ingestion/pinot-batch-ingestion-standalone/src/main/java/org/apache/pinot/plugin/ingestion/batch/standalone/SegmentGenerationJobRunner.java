@@ -175,6 +175,7 @@ public class SegmentGenerationJobRunner implements IngestionJobRunner {
         _spec.getIncludeFileNamePattern(), _spec.getExcludeFileNamePattern(), _spec.isSearchRecursively());
 
     File localTempDir = new File(FileUtils.getTempDirectory(), "pinot-" + UUID.randomUUID());
+    ConsistentDataPushUtils.configureSegmentPostfix(_spec);
     try {
       int numInputFiles = filteredFiles.size();
       _segmentCreationTaskCountDownLatch = new CountDownLatch(numInputFiles);
@@ -233,7 +234,6 @@ public class SegmentGenerationJobRunner implements IngestionJobRunner {
     taskSpec.setRecordReaderSpec(_spec.getRecordReaderSpec());
     taskSpec.setSchema(_schema);
     taskSpec.setTableConfig(_tableConfig);
-    ConsistentDataPushUtils.configureSegmentPostfix(_spec);
     taskSpec.setSegmentNameGeneratorSpec(_spec.getSegmentNameGeneratorSpec());
     taskSpec.setInputFilePath(localInputDataFile.getAbsolutePath());
     taskSpec.setSequenceId(seqId);

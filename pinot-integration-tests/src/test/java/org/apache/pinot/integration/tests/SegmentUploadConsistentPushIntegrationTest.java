@@ -24,8 +24,10 @@ import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.apache.commons.io.FileUtils;
+import org.apache.pinot.controller.helix.ControllerTest;
 import org.apache.pinot.plugin.ingestion.batch.standalone.SegmentMetadataPushJobRunner;
 import org.apache.pinot.spi.config.table.TableConfig;
+import org.apache.pinot.spi.config.table.TableType;
 import org.apache.pinot.spi.config.table.ingestion.BatchIngestionConfig;
 import org.apache.pinot.spi.config.table.ingestion.IngestionConfig;
 import org.apache.pinot.spi.data.Schema;
@@ -34,6 +36,7 @@ import org.apache.pinot.spi.ingestion.batch.spec.PinotFSSpec;
 import org.apache.pinot.spi.ingestion.batch.spec.PushJobSpec;
 import org.apache.pinot.spi.ingestion.batch.spec.SegmentGenerationJobSpec;
 import org.apache.pinot.spi.ingestion.batch.spec.TableSpec;
+import org.apache.pinot.spi.utils.builder.ControllerRequestURLBuilder;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -135,13 +138,18 @@ public class SegmentUploadConsistentPushIntegrationTest extends SegmentUploadInt
     Assert.assertNotNull(segmentNameWithoutMove);
     numDocs = getNumDocs(segmentNameWithoutMove);
     testCountStar(numDocs);
+
+    // Should be able to find all of the segments from in the segment lineage entry's segmentsTo field.
+    String segmentLineageResponse = ControllerTest.sendGetRequest(
+        ControllerRequestURLBuilder.baseUrl(_controllerBaseApiUrl)
+            .forListAllSegmentLineages(DEFAULT_TABLE_NAME, TableType.OFFLINE.toString()));
+    Assert.assertNotNull(segmentLineageResponse);
   }
 
   @Override
   protected IngestionConfig getIngestionConfig() {
     IngestionConfig ingestionConfig = new IngestionConfig();
-    ingestionConfig.setBatchIngestionConfig(
-        new BatchIngestionConfig(null, "REFRESH", "DAILY", true, false));
+    ingestionConfig.setBatchIngestionConfig(new BatchIngestionConfig(null, "REFRESH", "DAILY", true));
     return ingestionConfig;
   }
 }

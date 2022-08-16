@@ -97,7 +97,7 @@ public class MergeRollupTaskGeneratorTest {
 
     // Skip task generation, if REFRESH table
     IngestionConfig ingestionConfig = new IngestionConfig();
-    ingestionConfig.setBatchIngestionConfig(new BatchIngestionConfig(null, "REFRESH", null, false, false));
+    ingestionConfig.setBatchIngestionConfig(new BatchIngestionConfig(null, "REFRESH", null, false));
     offlineTableConfig = getOfflineTableConfig(new HashMap<>());
     offlineTableConfig.setIngestionConfig(ingestionConfig);
     pinotTaskConfigs = generator.generateTasks(Lists.newArrayList(offlineTableConfig));

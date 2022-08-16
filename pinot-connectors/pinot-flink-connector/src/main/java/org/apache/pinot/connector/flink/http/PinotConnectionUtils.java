@@ -66,7 +66,7 @@ public final class PinotConnectionUtils {
     if (ingestionConfig == null) {
       ingestionConfig = new IngestionConfig();
       ingestionConfig.setBatchIngestionConfig(
-          new BatchIngestionConfig(Collections.singletonList(newBatchConfigMap), "APPEND", "HOURLY", false, false));
+          new BatchIngestionConfig(Collections.singletonList(newBatchConfigMap), "APPEND", "HOURLY", false));
       tableConfig.setIngestionConfig(ingestionConfig);
       return tableConfig;
     }
@@ -74,7 +74,7 @@ public final class PinotConnectionUtils {
     BatchIngestionConfig batchIngestionConfig = ingestionConfig.getBatchIngestionConfig();
     if (batchIngestionConfig == null) {
       ingestionConfig.setBatchIngestionConfig(
-          new BatchIngestionConfig(Collections.singletonList(newBatchConfigMap), "APPEND", "HOURLY", false, false));
+          new BatchIngestionConfig(Collections.singletonList(newBatchConfigMap), "APPEND", "HOURLY", false));
       return tableConfig;
     }
 
