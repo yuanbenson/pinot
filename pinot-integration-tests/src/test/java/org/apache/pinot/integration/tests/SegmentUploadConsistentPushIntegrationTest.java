@@ -102,6 +102,17 @@ public class SegmentUploadConsistentPushIntegrationTest extends SegmentUploadInt
     long numDocs = getNumDocs(segmentNameWithMove);
     testCountStar(numDocs);
 
+    // Fetch segment lineage entry after running segment metadata push with consistent push enabled.
+    String segmentLineageResponse = ControllerTest.sendGetRequest(
+        ControllerRequestURLBuilder.baseUrl(_controllerBaseApiUrl)
+            .forListAllSegmentLineages(DEFAULT_TABLE_NAME, TableType.OFFLINE.toString()));
+    // Segment lineage should be in completed state.
+    Assert.assertTrue(segmentLineageResponse.contains("\"state\":\"COMPLETED\""));
+    // SegmentsFrom should be empty as we started with a blank table.
+    Assert.assertTrue(segmentLineageResponse.contains("\"segmentsFrom\":[]"));
+    // SegmentsTo should contain uploaded segment.
+    Assert.assertTrue(segmentLineageResponse.contains("\"segmentsTo\":[\"" + segmentNameWithMove + "\"]"));
+
     // Clear segment and tar dir
     for (File segment : _segmentDir.listFiles()) {
       FileUtils.deleteQuietly(segment);
@@ -139,11 +150,16 @@ public class SegmentUploadConsistentPushIntegrationTest extends SegmentUploadInt
     numDocs = getNumDocs(segmentNameWithoutMove);
     testCountStar(numDocs);
 
-    // Should be able to find all of the segments from in the segment lineage entry's segmentsTo field.
-    String segmentLineageResponse = ControllerTest.sendGetRequest(
+    // Fetch segment lineage entry after running segment metadata push with consistent push enabled.
+    segmentLineageResponse = ControllerTest.sendGetRequest(
         ControllerRequestURLBuilder.baseUrl(_controllerBaseApiUrl)
             .forListAllSegmentLineages(DEFAULT_TABLE_NAME, TableType.OFFLINE.toString()));
-    Assert.assertNotNull(segmentLineageResponse);
+    // Segment lineage should be in completed state.
+    Assert.assertTrue(segmentLineageResponse.contains("\"state\":\"COMPLETED\""));
+    // SegmentsFrom should contain the previous segment
+    Assert.assertTrue(segmentLineageResponse.contains("\"segmentsFrom\":[\"" + segmentNameWithMove + "\"]"));
+    // SegmentsTo should contain uploaded segment.
+    Assert.assertTrue(segmentLineageResponse.contains("\"segmentsTo\":[\"" + segmentNameWithoutMove + "\"]"));
   }
 
   @Override

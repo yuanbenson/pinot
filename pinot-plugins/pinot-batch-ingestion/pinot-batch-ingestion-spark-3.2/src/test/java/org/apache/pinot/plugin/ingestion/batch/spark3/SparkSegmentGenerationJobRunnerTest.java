@@ -20,6 +20,8 @@ package org.apache.pinot.plugin.ingestion.batch.spark3;
 
 import com.google.common.collect.Lists;
 import java.io.File;
+import java.io.FilenameFilter;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Collections;
@@ -28,6 +30,8 @@ import org.apache.pinot.plugin.inputformat.csv.CSVRecordReader;
 import org.apache.pinot.plugin.inputformat.csv.CSVRecordReaderConfig;
 import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.config.table.TableType;
+import org.apache.pinot.spi.config.table.ingestion.BatchIngestionConfig;
+import org.apache.pinot.spi.config.table.ingestion.IngestionConfig;
 import org.apache.pinot.spi.data.FieldSpec.DataType;
 import org.apache.pinot.spi.data.Schema;
 import org.apache.pinot.spi.data.Schema.SchemaBuilder;
@@ -43,6 +47,8 @@ import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static org.testng.Assert.assertEquals;
+
 
 public class SparkSegmentGenerationJobRunnerTest {
   private SparkContext _sparkContext;
@@ -57,9 +63,7 @@ public class SparkSegmentGenerationJobRunnerTest {
     // TODO use common resource definitions & code shared with Hadoop unit test.
     // So probably need a pinot-batch-ingestion-common tests jar that we depend on.
 
-    File testDir = Files.createTempDirectory("testSegmentGeneration-").toFile();
-    testDir.delete();
-    testDir.mkdirs();
+    File testDir = makeTestDir();
 
     File inputDir = new File(testDir, "input");
     inputDir.mkdirs();
@@ -76,50 +80,12 @@ public class SparkSegmentGenerationJobRunnerTest {
 
     // Set up schema file.
     final String schemaName = "mySchema";
-    File schemaFile = new File(testDir, "schema");
-    Schema schema = new SchemaBuilder()
-      .setSchemaName(schemaName)
-      .addSingleValueDimension("col1", DataType.STRING)
-      .addMetric("col2", DataType.INT)
-      .build();
-    FileUtils.write(schemaFile, schema.toPrettyJsonString(), StandardCharsets.UTF_8);
+    File schemaFile = makeSchemaFile(testDir, schemaName);
 
     // Set up table config file.
-    File tableConfigFile = new File(testDir, "tableConfig");
-    TableConfig tableConfig = new TableConfigBuilder(TableType.OFFLINE)
-      .setTableName("myTable")
-      .setSchemaName(schemaName)
-      .setNumReplicas(1)
-      .build();
-    FileUtils.write(tableConfigFile, tableConfig.toJsonString(), StandardCharsets.UTF_8);
+    File tableConfigFile = makeTableConfigFile(testDir, schemaName);
 
-    SegmentGenerationJobSpec jobSpec = new SegmentGenerationJobSpec();
-    jobSpec.setJobType("SegmentCreation");
-    jobSpec.setInputDirURI(inputDir.toURI().toString());
-    jobSpec.setOutputDirURI(outputDir.toURI().toString());
-    jobSpec.setOverwriteOutput(false);
-
-    RecordReaderSpec recordReaderSpec = new RecordReaderSpec();
-    recordReaderSpec.setDataFormat("csv");
-    recordReaderSpec.setClassName(CSVRecordReader.class.getName());
-    recordReaderSpec.setConfigClassName(CSVRecordReaderConfig.class.getName());
-    jobSpec.setRecordReaderSpec(recordReaderSpec);
-
-    TableSpec tableSpec = new TableSpec();
-    tableSpec.setTableName("myTable");
-    tableSpec.setSchemaURI(schemaFile.toURI().toString());
-    tableSpec.setTableConfigURI(tableConfigFile.toURI().toString());
-    jobSpec.setTableSpec(tableSpec);
-
-    ExecutionFrameworkSpec efSpec = new ExecutionFrameworkSpec();
-    efSpec.setName("standalone");
-    efSpec.setSegmentGenerationJobRunnerClassName(SparkSegmentGenerationJobRunner.class.getName());
-    jobSpec.setExecutionFrameworkSpec(efSpec);
-
-    PinotFSSpec pfsSpec = new PinotFSSpec();
-    pfsSpec.setScheme("file");
-    pfsSpec.setClassName(LocalPinotFS.class.getName());
-    jobSpec.setPinotFSSpecs(Collections.singletonList(pfsSpec));
+    SegmentGenerationJobSpec jobSpec = makeJobSpec(inputDir, outputDir, schemaFile, tableConfigFile);
 
     SparkSegmentGenerationJobRunner jobRunner = new SparkSegmentGenerationJobRunner(jobSpec);
     jobRunner.run();
@@ -150,11 +116,43 @@ public class SparkSegmentGenerationJobRunnerTest {
   }
 
   @Test
+  public void testSegmentGenerationWithConsistentPush() throws Exception {
+
+    File testDir = makeTestDir();
+
+    File inputDir = new File(testDir, "input");
+    inputDir.mkdirs();
+    File inputFile = new File(inputDir, "input.csv");
+    FileUtils.writeLines(inputFile, Lists.newArrayList("col1,col2", "value1,1", "value2,2"));
+
+    File outputDir = new File(testDir, "output");
+
+    // Set up schema file.
+    final String schemaName = "mySchema";
+    File schemaFile = makeSchemaFile(testDir, schemaName);
+
+    // Set up table config file.
+    File tableConfigFile = makeTableConfigFileWithConsistentPush(testDir, schemaName);
+
+    SegmentGenerationJobSpec jobSpec = makeJobSpec(inputDir, outputDir, schemaFile, tableConfigFile);
+
+    SparkSegmentGenerationJobRunner jobRunner = new SparkSegmentGenerationJobRunner(jobSpec);
+    jobRunner.run();
+
+    // There should be a tar file generated with timestamp (13 digits)
+    String[] list = outputDir.list(new FilenameFilter() {
+      @Override
+      public boolean accept(File dir, String name) {
+        return name.matches("myTable_OFFLINE__\\d{13}_0.tar.gz");
+      }
+    });
+    assertEquals(list.length, 1);
+  }
+
+  @Test
   public void testInputFilesWithSameNameInDifferentDirectories()
       throws Exception {
-    File testDir = Files.createTempDirectory("testSegmentGeneration-").toFile();
-    testDir.delete();
-    testDir.mkdirs();
+    File testDir = makeTestDir();
 
     File inputDir = new File(testDir, "input");
     File inputSubDir1 = new File(inputDir, "2009");
@@ -172,6 +170,37 @@ public class SparkSegmentGenerationJobRunnerTest {
 
     // Set up schema file.
     final String schemaName = "mySchema";
+    File schemaFile = makeSchemaFile(testDir, schemaName);
+
+    // Set up table config file.
+    File tableConfigFile = makeTableConfigFile(testDir, schemaName);
+
+    SegmentGenerationJobSpec jobSpec = makeJobSpec(inputDir, outputDir, schemaFile, tableConfigFile);
+
+    SparkSegmentGenerationJobRunner jobRunner = new SparkSegmentGenerationJobRunner(jobSpec);
+    jobRunner.run();
+
+    // Check that both segment files are created
+
+    File newSegmentFile2009 = new File(outputDir, "2009/myTable_OFFLINE_0.tar.gz");
+    Assert.assertTrue(newSegmentFile2009.exists());
+    Assert.assertTrue(newSegmentFile2009.isFile());
+    Assert.assertTrue(newSegmentFile2009.length() > 0);
+
+    File newSegmentFile2010 = new File(outputDir, "2010/myTable_OFFLINE_0.tar.gz");
+    Assert.assertTrue(newSegmentFile2010.exists());
+    Assert.assertTrue(newSegmentFile2010.isFile());
+    Assert.assertTrue(newSegmentFile2010.length() > 0);
+  }
+
+  private File makeTestDir() throws IOException {
+    File testDir = Files.createTempDirectory("testSegmentGeneration-").toFile();
+    testDir.delete();
+    testDir.mkdirs();
+    return testDir;
+  }
+
+  private File makeSchemaFile(File testDir, String schemaName) throws IOException {
     File schemaFile = new File(testDir, "schema");
     Schema schema = new SchemaBuilder()
         .setSchemaName(schemaName)
@@ -179,8 +208,10 @@ public class SparkSegmentGenerationJobRunnerTest {
         .addMetric("col2", DataType.INT)
         .build();
     FileUtils.write(schemaFile, schema.toPrettyJsonString(), StandardCharsets.UTF_8);
+    return schemaFile;
+  }
 
-    // Set up table config file.
+  private File makeTableConfigFile(File testDir, String schemaName) throws IOException {
     File tableConfigFile = new File(testDir, "tableConfig");
     TableConfig tableConfig = new TableConfigBuilder(TableType.OFFLINE)
         .setTableName("myTable")
@@ -188,13 +219,30 @@ public class SparkSegmentGenerationJobRunnerTest {
         .setNumReplicas(1)
         .build();
     FileUtils.write(tableConfigFile, tableConfig.toJsonString(), StandardCharsets.UTF_8);
+    return tableConfigFile;
+  }
 
+  private File makeTableConfigFileWithConsistentPush(File testDir, String schemaName) throws IOException {
+    File tableConfigFile = new File(testDir, "tableConfig");
+    IngestionConfig ingestionConfig = new IngestionConfig();
+    ingestionConfig.setBatchIngestionConfig(new BatchIngestionConfig(null, "REFRESH", "DAILY", true));
+    TableConfig tableConfig = new TableConfigBuilder(TableType.OFFLINE)
+        .setTableName("myTable")
+        .setSchemaName(schemaName)
+        .setNumReplicas(1)
+        .setIngestionConfig(ingestionConfig)
+        .build();
+    FileUtils.write(tableConfigFile, tableConfig.toJsonString(), StandardCharsets.UTF_8);
+    return tableConfigFile;
+  }
+
+  private SegmentGenerationJobSpec makeJobSpec(File inputDir, File outputDir, File schemaFile, File tableConfigFile) {
     SegmentGenerationJobSpec jobSpec = new SegmentGenerationJobSpec();
     jobSpec.setJobType("SegmentCreation");
     jobSpec.setInputDirURI(inputDir.toURI().toString());
     jobSpec.setSearchRecursively(true);
     jobSpec.setOutputDirURI(outputDir.toURI().toString());
-    jobSpec.setOverwriteOutput(true);
+    jobSpec.setOverwriteOutput(false);
 
     RecordReaderSpec recordReaderSpec = new RecordReaderSpec();
     recordReaderSpec.setDataFormat("csv");
@@ -218,19 +266,6 @@ public class SparkSegmentGenerationJobRunnerTest {
     pfsSpec.setClassName(LocalPinotFS.class.getName());
     jobSpec.setPinotFSSpecs(Collections.singletonList(pfsSpec));
 
-    SparkSegmentGenerationJobRunner jobRunner = new SparkSegmentGenerationJobRunner(jobSpec);
-    jobRunner.run();
-
-    // Check that both segment files are created
-
-    File newSegmentFile2009 = new File(outputDir, "2009/myTable_OFFLINE_0.tar.gz");
-    Assert.assertTrue(newSegmentFile2009.exists());
-    Assert.assertTrue(newSegmentFile2009.isFile());
-    Assert.assertTrue(newSegmentFile2009.length() > 0);
-
-    File newSegmentFile2010 = new File(outputDir, "2010/myTable_OFFLINE_0.tar.gz");
-    Assert.assertTrue(newSegmentFile2010.exists());
-    Assert.assertTrue(newSegmentFile2010.isFile());
-    Assert.assertTrue(newSegmentFile2010.length() > 0);
+    return jobSpec;
   }
 }
