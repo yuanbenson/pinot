@@ -127,8 +127,7 @@ public class FileBasedSegmentWriterTest {
       // expected
     }
 
-    ingestionConfig.setBatchIngestionConfig(
-        new BatchIngestionConfig(Collections.emptyList(), "APPEND", "HOURLY"));
+    ingestionConfig.setBatchIngestionConfig(new BatchIngestionConfig(Collections.emptyList(), "APPEND", "HOURLY"));
     try {
       segmentWriter.init(tableConfig, _schema);
       Assert.fail("Should fail due to missing batchConfigMaps");

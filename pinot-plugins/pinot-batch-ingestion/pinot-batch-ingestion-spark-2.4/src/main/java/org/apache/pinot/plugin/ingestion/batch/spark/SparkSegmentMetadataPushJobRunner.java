@@ -23,10 +23,10 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import org.apache.pinot.plugin.ingestion.batch.common.BaseSegmentPushJobRunner;
+import org.apache.pinot.segment.local.utils.ConsistentDataPushUtils;
 import org.apache.pinot.segment.local.utils.SegmentPushUtils;
 import org.apache.pinot.spi.env.PinotConfiguration;
 import org.apache.pinot.spi.filesystem.PinotFSFactory;
-import org.apache.pinot.spi.ingestion.batch.spec.Constants;
 import org.apache.pinot.spi.ingestion.batch.spec.PinotFSSpec;
 import org.apache.pinot.spi.ingestion.batch.spec.SegmentGenerationJobSpec;
 import org.apache.pinot.spi.plugin.PluginManager;
@@ -49,14 +49,12 @@ public class SparkSegmentMetadataPushJobRunner extends BaseSegmentPushJobRunner
   }
 
   public void getSegmentsToPush() {
-    for (String file : _files) {
-      if (file.endsWith(Constants.TAR_GZ_FILE_EXT)) {
-        _segmentsToPush.add(file);
-      }
-    }
+    _segmentUriToTarPathMap = SegmentPushUtils.getSegmentUriToTarPathMap(_outputDirURI, _spec.getPushJobSpec(), _files);
+    _segmentsToPush = ConsistentDataPushUtils.getMetadataSegmentsTo(_segmentUriToTarPathMap);
   }
 
-  public void pushSegments() {
+  public void pushSegments()
+      throws Exception {
     List<PinotFSSpec> pinotFSSpecs = _spec.getPinotFSSpecs();
 
     int pushParallelism = _spec.getPushJobSpec().getPushParallelism();
@@ -66,7 +64,7 @@ public class SparkSegmentMetadataPushJobRunner extends BaseSegmentPushJobRunner
     if (pushParallelism == 1) {
       // Push from driver
       try {
-        SegmentPushUtils.pushSegments(_spec, _outputDirFS, _segmentsToPush);
+        SegmentPushUtils.sendSegmentUriAndMetadata(_spec, _outputDirFS, _segmentUriToTarPathMap);
       } catch (RetriableOperationException | AttemptsExceededException e) {
         throw new RuntimeException(e);
       }

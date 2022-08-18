@@ -19,12 +19,11 @@
 package org.apache.pinot.integration.tests;
 
 import org.apache.pinot.plugin.ingestion.batch.common.BaseSegmentPushJobRunner;
-import org.apache.pinot.plugin.ingestion.batch.standalone.SegmentMetadataPushJobRunner;
+import org.apache.pinot.plugin.ingestion.batch.hadoop.HadoopSegmentMetadataPushJobRunner;
 
-public class SegmentUploadConsistentPushIntegrationTest extends BaseSegmentUploadConsistentPushIntegrationTest {
-
+public class HadoopSegmentUploadConsistentPushIntegrationTest extends BaseSegmentUploadConsistentPushIntegrationTest {
   @Override
   public BaseSegmentPushJobRunner getMetadataPushJobRunner() {
-    return new SegmentMetadataPushJobRunner();
+    return new HadoopSegmentMetadataPushJobRunner();
   }
 }

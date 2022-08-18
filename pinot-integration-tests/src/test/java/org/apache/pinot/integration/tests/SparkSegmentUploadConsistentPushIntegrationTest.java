@@ -19,12 +19,11 @@
 package org.apache.pinot.integration.tests;
 
 import org.apache.pinot.plugin.ingestion.batch.common.BaseSegmentPushJobRunner;
-import org.apache.pinot.plugin.ingestion.batch.standalone.SegmentMetadataPushJobRunner;
+import org.apache.pinot.plugin.ingestion.batch.spark3.SparkSegmentMetadataPushJobRunner;
 
-public class SegmentUploadConsistentPushIntegrationTest extends BaseSegmentUploadConsistentPushIntegrationTest {
-
+public class SparkSegmentUploadConsistentPushIntegrationTest extends BaseSegmentUploadConsistentPushIntegrationTest {
   @Override
   public BaseSegmentPushJobRunner getMetadataPushJobRunner() {
-    return new SegmentMetadataPushJobRunner();
+    return new SparkSegmentMetadataPushJobRunner();
   }
 }
