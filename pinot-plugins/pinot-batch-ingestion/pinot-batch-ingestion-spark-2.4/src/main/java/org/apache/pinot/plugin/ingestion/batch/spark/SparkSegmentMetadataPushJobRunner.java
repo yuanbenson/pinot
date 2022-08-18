@@ -20,15 +20,12 @@ package org.apache.pinot.plugin.ingestion.batch.spark;
 
 import java.io.Serializable;
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.apache.commons.lang3.tuple.Triple;
+import org.apache.pinot.plugin.ingestion.batch.common.BaseSegmentPushJobRunner;
 import org.apache.pinot.segment.local.utils.SegmentPushUtils;
 import org.apache.pinot.spi.env.PinotConfiguration;
-import org.apache.pinot.spi.filesystem.PinotFS;
 import org.apache.pinot.spi.filesystem.PinotFSFactory;
-import org.apache.pinot.spi.ingestion.batch.runner.SegmentPushJobRunner;
 import org.apache.pinot.spi.ingestion.batch.spec.Constants;
 import org.apache.pinot.spi.ingestion.batch.spec.PinotFSSpec;
 import org.apache.pinot.spi.ingestion.batch.spec.SegmentGenerationJobSpec;
@@ -41,7 +38,8 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.VoidFunction;
 
 
-public class SparkSegmentMetadataPushJobRunner extends SegmentPushJobRunner implements Serializable {
+public class SparkSegmentMetadataPushJobRunner extends BaseSegmentPushJobRunner
+    implements Serializable {
 
   public SparkSegmentMetadataPushJobRunner() {
   }
@@ -50,34 +48,32 @@ public class SparkSegmentMetadataPushJobRunner extends SegmentPushJobRunner impl
     init(spec);
   }
 
-  public void pushSegments(Triple<String[], PinotFS, URI> fileSysParams) {
-    String[] files = fileSysParams.getLeft();
-    PinotFS outputDirFS = fileSysParams.getMiddle();
-    URI outputDirURI = fileSysParams.getRight();
-    List<PinotFSSpec> pinotFSSpecs = _spec.getPinotFSSpecs();
-
-    List<String> segmentsToPush = new ArrayList<>();
-    for (String file : files) {
+  public void getSegmentsToPush() {
+    for (String file : _files) {
       if (file.endsWith(Constants.TAR_GZ_FILE_EXT)) {
-        segmentsToPush.add(file);
+        _segmentsToPush.add(file);
       }
     }
+  }
+
+  public void pushSegments() {
+    List<PinotFSSpec> pinotFSSpecs = _spec.getPinotFSSpecs();
 
     int pushParallelism = _spec.getPushJobSpec().getPushParallelism();
     if (pushParallelism < 1) {
-      pushParallelism = segmentsToPush.size();
+      pushParallelism = _segmentsToPush.size();
     }
     if (pushParallelism == 1) {
       // Push from driver
       try {
-        SegmentPushUtils.pushSegments(_spec, outputDirFS, segmentsToPush);
+        SegmentPushUtils.pushSegments(_spec, _outputDirFS, _segmentsToPush);
       } catch (RetriableOperationException | AttemptsExceededException e) {
         throw new RuntimeException(e);
       }
     } else {
       JavaSparkContext sparkContext = JavaSparkContext.fromSparkContext(SparkContext.getOrCreate());
-      JavaRDD<String> pathRDD = sparkContext.parallelize(segmentsToPush, pushParallelism);
-      URI finalOutputDirURI = outputDirURI;
+      JavaRDD<String> pathRDD = sparkContext.parallelize(_segmentsToPush, pushParallelism);
+      URI finalOutputDirURI = _outputDirURI;
       // Prevent using lambda expression in Spark to avoid potential serialization exceptions, use inner function
       // instead.
       pathRDD.foreach(new VoidFunction<String>() {

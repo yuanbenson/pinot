@@ -16,23 +16,32 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.pinot.spi.ingestion.batch.runner;
+package org.apache.pinot.plugin.ingestion.batch.common;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import org.apache.commons.lang3.tuple.Triple;
+import java.util.Map;
+import org.apache.pinot.segment.local.utils.ConsistentDataPushUtils;
 import org.apache.pinot.spi.env.PinotConfiguration;
 import org.apache.pinot.spi.filesystem.PinotFS;
 import org.apache.pinot.spi.filesystem.PinotFSFactory;
+import org.apache.pinot.spi.ingestion.batch.runner.IngestionJobRunner;
 import org.apache.pinot.spi.ingestion.batch.spec.PinotFSSpec;
 import org.apache.pinot.spi.ingestion.batch.spec.SegmentGenerationJobSpec;
 
-public abstract class SegmentPushJobRunner implements IngestionJobRunner {
+public abstract class BaseSegmentPushJobRunner implements IngestionJobRunner {
 
-  public SegmentGenerationJobSpec _spec;
+  protected SegmentGenerationJobSpec _spec;
+  protected String[] _files;
+  protected PinotFS _outputDirFS;
+  protected URI _outputDirURI;
+  protected List<String> _segmentsToPush = new ArrayList<>();
+  protected Map<String, String> _segmentUriToTarPathMap;
 
   @Override
   public void init(SegmentGenerationJobSpec spec) {
@@ -52,39 +61,50 @@ public abstract class SegmentPushJobRunner implements IngestionJobRunner {
     }
   }
 
-  public Triple<String[], PinotFS, URI> initFileSys() {
-    //init all file systems
+  public void initFileSys() {
+    // init all file systems
     List<PinotFSSpec> pinotFSSpecs = _spec.getPinotFSSpecs();
     for (PinotFSSpec pinotFSSpec : pinotFSSpecs) {
       PinotFSFactory.register(pinotFSSpec.getScheme(), pinotFSSpec.getClassName(), new PinotConfiguration(pinotFSSpec));
     }
 
-    //Get outputFS for writing output Pinot segments
-    URI outputDirURI;
+    // Get outputFS for writing output Pinot segments
     try {
-      outputDirURI = new URI(_spec.getOutputDirURI());
-      if (outputDirURI.getScheme() == null) {
-        outputDirURI = new File(_spec.getOutputDirURI()).toURI();
+      _outputDirURI = new URI(_spec.getOutputDirURI());
+      if (_outputDirURI.getScheme() == null) {
+        _outputDirURI = new File(_spec.getOutputDirURI()).toURI();
       }
     } catch (URISyntaxException e) {
       throw new RuntimeException("outputDirURI is not valid - '" + _spec.getOutputDirURI() + "'");
     }
-    PinotFS outputDirFS = PinotFSFactory.create(outputDirURI.getScheme());
+    _outputDirFS = PinotFSFactory.create(_outputDirURI.getScheme());
 
-    //Get list of files to process
-    String[] files;
+    // Get list of files to process
     try {
-      files = outputDirFS.listFiles(outputDirURI, true);
+      _files = _outputDirFS.listFiles(_outputDirURI, true);
     } catch (IOException e) {
-      throw new RuntimeException("Unable to list all files under outputDirURI - '" + outputDirURI + "'");
+      throw new RuntimeException("Unable to list all files under outputDirURI - '" + _outputDirURI + "'");
     }
-    return Triple.of(files, outputDirFS, outputDirURI);
   }
 
-  public abstract void pushSegments(Triple<String[], PinotFS, URI> fileSysParams);
+  public abstract void getSegmentsToPush();
+
+  public abstract void pushSegments()
+      throws Exception;
 
   @Override
   public void run() {
-    pushSegments(initFileSys());
+    initFileSys();
+    Map<URI, String> uriToLineageEntryIdMap = new HashMap<>();
+    try {
+      getSegmentsToPush();
+      uriToLineageEntryIdMap =
+          ConsistentDataPushUtils.preUpload(_spec, _segmentsToPush);
+      pushSegments();
+      ConsistentDataPushUtils.postUpload(_spec, uriToLineageEntryIdMap);
+    } catch (Exception e) {
+      ConsistentDataPushUtils.handleUploadException(_spec, uriToLineageEntryIdMap, e);
+      throw new RuntimeException(e);
+    }
   }
 }

@@ -20,17 +20,13 @@ package org.apache.pinot.plugin.ingestion.batch.hadoop;
 
 import java.io.Serializable;
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
-import org.apache.commons.lang3.tuple.Triple;
-import org.apache.pinot.segment.local.utils.ConsistentDataPushUtils;
+import org.apache.pinot.plugin.ingestion.batch.common.BaseSegmentPushJobRunner;
 import org.apache.pinot.segment.local.utils.SegmentPushUtils;
-import org.apache.pinot.spi.filesystem.PinotFS;
-import org.apache.pinot.spi.ingestion.batch.runner.SegmentPushJobRunner;
 import org.apache.pinot.spi.ingestion.batch.spec.Constants;
 import org.apache.pinot.spi.ingestion.batch.spec.SegmentGenerationJobSpec;
 
-public class HadoopSegmentUriPushJobRunner extends SegmentPushJobRunner implements Serializable {
+public class HadoopSegmentUriPushJobRunner extends BaseSegmentPushJobRunner
+    implements Serializable {
 
   public HadoopSegmentUriPushJobRunner() {
   }
@@ -39,20 +35,19 @@ public class HadoopSegmentUriPushJobRunner extends SegmentPushJobRunner implemen
     init(spec);
   }
 
-  public void pushSegments(Triple<String[], PinotFS, URI> fileSysParams) {
-    String[] files = fileSysParams.getLeft();
-    URI outputDirURI = fileSysParams.getRight();
-
-    List<String> segmentUris = new ArrayList<>();
-    for (String file : files) {
+  public void getSegmentsToPush() {
+    for (String file : _files) {
       URI uri = URI.create(file);
       if (uri.getPath().endsWith(Constants.TAR_GZ_FILE_EXT)) {
         URI updatedURI = SegmentPushUtils
-            .generateSegmentTarURI(outputDirURI, uri, _spec.getPushJobSpec().getSegmentUriPrefix(),
+            .generateSegmentTarURI(_outputDirURI, uri, _spec.getPushJobSpec().getSegmentUriPrefix(),
                 _spec.getPushJobSpec().getSegmentUriSuffix());
-        segmentUris.add(updatedURI.toString());
+        _segmentsToPush.add(updatedURI.toString());
       }
     }
-    ConsistentDataPushUtils.pushSegmentsUris(_spec, segmentUris);
+  }
+
+  public void pushSegments() throws Exception {
+    SegmentPushUtils.sendSegmentUriAndMetadata(_spec, _outputDirFS, _segmentUriToTarPathMap);
   }
 }

@@ -91,7 +91,7 @@ public class SegmentWriterUploaderIntegrationTest extends BaseClusterIntegration
     batchConfigMap.put(BatchConfigProperties.PUSH_CONTROLLER_URI, _controllerBaseApiUrl);
     IngestionConfig ingestionConfig = new IngestionConfig();
     ingestionConfig.setBatchIngestionConfig(
-        new BatchIngestionConfig(Collections.singletonList(batchConfigMap), "APPEND", "HOURLY", false));
+        new BatchIngestionConfig(Collections.singletonList(batchConfigMap), "APPEND", "HOURLY"));
     return ingestionConfig;
   }
 

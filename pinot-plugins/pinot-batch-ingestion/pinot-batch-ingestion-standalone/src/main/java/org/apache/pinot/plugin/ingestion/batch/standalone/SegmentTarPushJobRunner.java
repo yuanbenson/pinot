@@ -18,17 +18,15 @@
  */
 package org.apache.pinot.plugin.ingestion.batch.standalone;
 
-import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
-import org.apache.commons.lang3.tuple.Triple;
+import org.apache.pinot.plugin.ingestion.batch.common.BaseSegmentPushJobRunner;
 import org.apache.pinot.segment.local.utils.ConsistentDataPushUtils;
-import org.apache.pinot.spi.filesystem.PinotFS;
-import org.apache.pinot.spi.ingestion.batch.runner.SegmentPushJobRunner;
+import org.apache.pinot.segment.local.utils.SegmentPushUtils;
 import org.apache.pinot.spi.ingestion.batch.spec.Constants;
 import org.apache.pinot.spi.ingestion.batch.spec.SegmentGenerationJobSpec;
+import org.apache.pinot.spi.utils.retry.AttemptsExceededException;
+import org.apache.pinot.spi.utils.retry.RetriableOperationException;
 
-public class SegmentTarPushJobRunner extends SegmentPushJobRunner {
+public class SegmentTarPushJobRunner extends BaseSegmentPushJobRunner {
 
   public SegmentTarPushJobRunner() {
   }
@@ -37,15 +35,16 @@ public class SegmentTarPushJobRunner extends SegmentPushJobRunner {
     init(spec);
   }
 
-  public void pushSegments(Triple<String[], PinotFS, URI> fileSysParams) {
-    String[] files = fileSysParams.getLeft();
-    PinotFS outputDirFS = fileSysParams.getMiddle();
-    List<String> segmentsToPush = new ArrayList<>();
-    for (String file : files) {
+  public void getSegmentsToPush() {
+    for (String file : _files) {
       if (file.endsWith(Constants.TAR_GZ_FILE_EXT)) {
-        segmentsToPush.add(file);
+        _segmentsToPush.add(file);
       }
     }
-    ConsistentDataPushUtils.pushSegmentsTar(_spec, outputDirFS, segmentsToPush);
+  }
+
+  public void pushSegments()
+      throws AttemptsExceededException, RetriableOperationException {
+    SegmentPushUtils.pushSegments(_spec, _outputDirFS, ConsistentDataPushUtils.getTarSegmentsTo(_segmentsToPush));
   }
 }

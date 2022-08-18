@@ -174,8 +174,9 @@ public class SegmentGenerationJobRunner implements IngestionJobRunner {
     List<String> filteredFiles = SegmentGenerationUtils.listMatchedFilesWithRecursiveOption(_inputDirFS, _inputDirURI,
         _spec.getIncludeFileNamePattern(), _spec.getExcludeFileNamePattern(), _spec.isSearchRecursively());
 
-    File localTempDir = new File(FileUtils.getTempDirectory(), "pinot-" + UUID.randomUUID());
     ConsistentDataPushUtils.configureSegmentPostfix(_spec);
+
+    File localTempDir = new File(FileUtils.getTempDirectory(), "pinot-" + UUID.randomUUID());
     try {
       int numInputFiles = filteredFiles.size();
       _segmentCreationTaskCountDownLatch = new CountDownLatch(numInputFiles);

@@ -20,7 +20,6 @@ package org.apache.pinot.plugin.ingestion.batch.spark3;
 
 import com.google.common.collect.Lists;
 import java.io.File;
-import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -46,9 +45,6 @@ import org.apache.spark.SparkContext;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import static org.testng.Assert.assertEquals;
-
 
 public class SparkSegmentGenerationJobRunnerTest {
   private SparkContext _sparkContext;
@@ -140,13 +136,8 @@ public class SparkSegmentGenerationJobRunnerTest {
     jobRunner.run();
 
     // There should be a tar file generated with timestamp (13 digits)
-    String[] list = outputDir.list(new FilenameFilter() {
-      @Override
-      public boolean accept(File dir, String name) {
-        return name.matches("myTable_OFFLINE__\\d{13}_0.tar.gz");
-      }
-    });
-    assertEquals(list.length, 1);
+    String[] list = outputDir.list((dir, name) -> name.matches("myTable_OFFLINE_\\d{13}_0.tar.gz"));
+    Assert.assertEquals(list.length, 1);
   }
 
   @Test

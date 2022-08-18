@@ -18,16 +18,12 @@
  */
 package org.apache.pinot.plugin.ingestion.batch.standalone;
 
-import java.net.URI;
-import java.util.Map;
-import org.apache.commons.lang3.tuple.Triple;
+import org.apache.pinot.plugin.ingestion.batch.common.BaseSegmentPushJobRunner;
 import org.apache.pinot.segment.local.utils.ConsistentDataPushUtils;
 import org.apache.pinot.segment.local.utils.SegmentPushUtils;
-import org.apache.pinot.spi.filesystem.PinotFS;
-import org.apache.pinot.spi.ingestion.batch.runner.SegmentPushJobRunner;
 import org.apache.pinot.spi.ingestion.batch.spec.SegmentGenerationJobSpec;
 
-public class SegmentMetadataPushJobRunner extends SegmentPushJobRunner {
+public class SegmentMetadataPushJobRunner extends BaseSegmentPushJobRunner {
 
   public SegmentMetadataPushJobRunner() {
   }
@@ -36,12 +32,12 @@ public class SegmentMetadataPushJobRunner extends SegmentPushJobRunner {
     init(spec);
   }
 
-  public void pushSegments(Triple<String[], PinotFS, URI> fileSysParams) {
-    String[] files = fileSysParams.getLeft();
-    PinotFS outputDirFS = fileSysParams.getMiddle();
-    URI outputDirURI = fileSysParams.getRight();
-    Map<String, String> segmentUriToTarPathMap =
-        SegmentPushUtils.getSegmentUriToTarPathMap(outputDirURI, _spec.getPushJobSpec(), files);
-    ConsistentDataPushUtils.pushSegmentsMetadata(_spec, outputDirFS, segmentUriToTarPathMap);
+  public void getSegmentsToPush() {
+    _segmentUriToTarPathMap = SegmentPushUtils.getSegmentUriToTarPathMap(_outputDirURI, _spec.getPushJobSpec(), _files);
+    _segmentsToPush = ConsistentDataPushUtils.getMetadataSegmentsTo(_segmentUriToTarPathMap);
+  }
+
+  public void pushSegments() throws Exception {
+    SegmentPushUtils.sendSegmentUriAndMetadata(_spec, _outputDirFS, _segmentUriToTarPathMap);
   }
 }

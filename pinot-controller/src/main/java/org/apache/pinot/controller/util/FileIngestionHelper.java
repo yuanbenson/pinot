@@ -131,7 +131,7 @@ public class FileIngestionHelper {
       BatchIngestionConfig batchIngestionConfigOverride =
           new BatchIngestionConfig(Collections.singletonList(batchConfigMapOverride),
               IngestionConfigUtils.getBatchSegmentIngestionType(_tableConfig),
-              IngestionConfigUtils.getBatchSegmentIngestionFrequency(_tableConfig), false);
+              IngestionConfigUtils.getBatchSegmentIngestionFrequency(_tableConfig));
 
       // Get SegmentGeneratorConfig
       SegmentGeneratorConfig segmentGeneratorConfig =

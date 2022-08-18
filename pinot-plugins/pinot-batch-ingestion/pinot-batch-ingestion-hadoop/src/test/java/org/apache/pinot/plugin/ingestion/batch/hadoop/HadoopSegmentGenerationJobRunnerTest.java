@@ -21,7 +21,6 @@ package org.apache.pinot.plugin.ingestion.batch.hadoop;
 import com.google.common.collect.Lists;
 import com.google.gson.Gson;
 import java.io.File;
-import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -49,9 +48,6 @@ import org.apache.pinot.spi.plugin.PluginManager;
 import org.apache.pinot.spi.utils.builder.TableConfigBuilder;
 import org.testng.Assert;
 import org.testng.annotations.Test;
-
-import static org.testng.Assert.assertEquals;
-
 
 public class HadoopSegmentGenerationJobRunnerTest {
 
@@ -182,13 +178,8 @@ public class HadoopSegmentGenerationJobRunnerTest {
     jobRunner.run();
 
     // There should be a tar file generated with timestamp (13 digits)
-    String[] list = outputDir.list(new FilenameFilter() {
-      @Override
-      public boolean accept(File dir, String name) {
-        return name.matches("myTable_OFFLINE__\\d{13}_0.tar.gz");
-      }
-    });
-    assertEquals(list.length, 1);
+    String[] list = outputDir.list((dir, name) -> name.matches("myTable_OFFLINE_\\d{13}_0.tar.gz"));
+    Assert.assertEquals(list.length, 1);
   }
 
   private File makeTestDir()

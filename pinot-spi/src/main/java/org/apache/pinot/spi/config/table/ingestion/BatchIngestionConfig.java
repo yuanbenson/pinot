@@ -55,6 +55,12 @@ public class BatchIngestionConfig extends BaseJsonConfig {
     _consistentDataPush = consistentDataPush;
   }
 
+  public BatchIngestionConfig(@JsonProperty("batchConfigMaps") @Nullable List<Map<String, String>> batchConfigMaps,
+      @JsonProperty("segmentIngestionType") String segmentIngestionType,
+      @JsonProperty("segmentIngestionFrequency") String segmentIngestionFrequency) {
+    this(batchConfigMaps, segmentIngestionType, segmentIngestionFrequency, false);
+  }
+
   @Nullable
   public List<Map<String, String>> getBatchConfigMaps() {
     return _batchConfigMaps;

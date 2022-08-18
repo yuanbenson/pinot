@@ -262,7 +262,7 @@ public class TableConfigUtils {
     if (batchIngestionConfig == null) {
       // Only create the config if any of the deprecated config is not null.
       if (segmentPushType != null || segmentPushFrequency != null) {
-        batchIngestionConfig = new BatchIngestionConfig(null, segmentPushType, segmentPushFrequency, false);
+        batchIngestionConfig = new BatchIngestionConfig(null, segmentPushType, segmentPushFrequency);
       }
     } else {
       // This should not happen typically, but since we are in repair mode, might as well cover this corner case.

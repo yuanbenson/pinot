@@ -25,6 +25,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.apache.commons.io.FileUtils;
 import org.apache.pinot.controller.helix.ControllerTest;
+import org.apache.pinot.plugin.ingestion.batch.hadoop.HadoopSegmentMetadataPushJobRunner;
+import org.apache.pinot.plugin.ingestion.batch.spark.SparkSegmentMetadataPushJobRunner;
 import org.apache.pinot.plugin.ingestion.batch.standalone.SegmentMetadataPushJobRunner;
 import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.config.table.TableType;
@@ -60,7 +62,9 @@ public class SegmentUploadConsistentPushIntegrationTest extends SegmentUploadInt
     ClusterIntegrationTestUtils.buildSegmentFromAvro(avroFiles.get(0), offlineTableConfig, schema, "_with_move",
         _segmentDir, _tarDir);
 
-    SegmentMetadataPushJobRunner runner = new SegmentMetadataPushJobRunner();
+    //SegmentMetadataPushJobRunner runner = new SegmentMetadataPushJobRunner();
+    //HadoopSegmentMetadataPushJobRunner runner = new HadoopSegmentMetadataPushJobRunner();
+    SparkSegmentMetadataPushJobRunner runner = new SparkSegmentMetadataPushJobRunner();
     SegmentGenerationJobSpec jobSpec = new SegmentGenerationJobSpec();
     PushJobSpec pushJobSpec = new PushJobSpec();
     // set moveToDeepStoreForMetadataPush to true
@@ -125,7 +129,7 @@ public class SegmentUploadConsistentPushIntegrationTest extends SegmentUploadInt
     ClusterIntegrationTestUtils.buildSegmentFromAvro(avroFiles.get(1), offlineTableConfig, schema, "_without_move",
         _segmentDir, _tarDir);
     jobSpec.setPushJobSpec(new PushJobSpec());
-    runner = new SegmentMetadataPushJobRunner();
+    runner = new SparkSegmentMetadataPushJobRunner();
 
     Assert.assertEquals(dataDirSegments.listFiles().length, 1);
     Assert.assertEquals(_tarDir.listFiles().length, 1);
