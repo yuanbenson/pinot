@@ -68,7 +68,7 @@ public class ConsistentDataPushUtils {
       throws Exception {
     String rawTableName = spec.getTableSpec().getTableName();
     boolean consistentDataPushEnabled = consistentDataPushEnabled(spec);
-    LOGGER.info("{} consistent push", consistentDataPushEnabled ? "Enabled" : "Disabled");
+    LOGGER.info("Consistent data push is: {}", consistentDataPushEnabled ? "enabled" : "disabled");
     Map<URI, String> uriToLineageEntryIdMap = new HashMap<>();
     if (consistentDataPushEnabled) {
       LOGGER.info("Start consistent push for table: " + rawTableName);
@@ -92,18 +92,9 @@ public class ConsistentDataPushUtils {
     }
   }
 
-  public static List<String> getMetadataSegmentsTo(Map<String, String> segmentUriToTarPathMap) {
-    List<String> segmentsTo = new ArrayList<>();
-    for (String segmentUriPath : segmentUriToTarPathMap.keySet()) {
-      String tarFilePath = segmentUriToTarPathMap.get(segmentUriPath);
-      String fileName = new File(tarFilePath).getName();
-      Preconditions.checkArgument(fileName.endsWith(Constants.TAR_GZ_FILE_EXT));
-      String segmentName = fileName.substring(0, fileName.length() - Constants.TAR_GZ_FILE_EXT.length());
-      segmentsTo.add(segmentName);
-    }
-    return segmentsTo;
-  }
-
+  /**
+   * Builds a map of controller URI to startReplaceSegments URI for each Pinot cluster in the spec.
+   */
   public static Map<URI, URI> getStartReplaceSegmentUris(SegmentGenerationJobSpec spec, String rawTableName) {
     Map<URI, URI> baseUriToStartReplaceSegmentUriMap = new HashMap<>();
     for (PinotClusterSpec pinotClusterSpec : spec.getPinotClusterSpecs()) {
@@ -120,6 +111,10 @@ public class ConsistentDataPushUtils {
     return baseUriToStartReplaceSegmentUriMap;
   }
 
+  /**
+   * Starts consistent data push protocol for each Pinot cluster in the spec.
+   * Returns a map of controller URI to segment lineage entry ID.
+   */
   public static Map<URI, String> startReplaceSegments(SegmentGenerationJobSpec spec,
       Map<URI, List<String>> uriToSegmentsFrom, List<String> segmentsTo)
       throws Exception {
@@ -138,13 +133,11 @@ public class ConsistentDataPushUtils {
       List<String> segmentsFrom = uriToSegmentsFrom.get(controllerUri);
 
       if (!Collections.disjoint(segmentsFrom, segmentsTo)) {
-        // This scenario could happen only when "disable.unique.segment.name" is enabled,
-        // i.e. newly generated segment name is the same as the existing one in the table. If so, we should
-        //    1) either clean up all the consistent push custom config from table config,
-        //    2) or remove "disable.unique.segment.name" to continue enabling consistent push.
         String errorMsg =
             String.format("Found same segment names when attempting to enable consistent push for table: %s",
                 rawTableName);
+        LOGGER.error("SegmentsFrom: {}", segmentsFrom);
+        LOGGER.error("SegmentsTo: {}", segmentsTo);
         LOGGER.error(errorMsg);
         throw new RuntimeException(errorMsg);
       }
@@ -184,6 +177,9 @@ public class ConsistentDataPushUtils {
     return uriToLineageEntryIdMap;
   }
 
+  /**
+   * Ends consistent data push protocol for each Pinot cluster in the spec.
+   */
   public static void endReplaceSegments(SegmentGenerationJobSpec spec, Map<URI, String> uriToLineageEntryIdMap) {
     AuthProvider authProvider = AuthProviderUtils.makeAuthProvider(spec.getAuthToken());
     String rawTableName = spec.getTableSpec().getTableName();
@@ -201,6 +197,11 @@ public class ConsistentDataPushUtils {
     }
   }
 
+  /**
+   * Revert segment lineage entry when exception gets caught. This revert request is called at best effort.
+   * If the revert call fails at this point, the next startReplaceSegment call will do the cleanup
+   * by marking the previous entry to "REVERTED" and cleaning up the leftover segments.
+   */
   public static void handleUploadException(SegmentGenerationJobSpec spec, Map<URI, String> uriToLineageEntryIdMap,
       Exception exception) {
     LOGGER.error("Exception when pushing segments. Marking segment lineage entry to 'REVERTED'.", exception);
@@ -222,19 +223,50 @@ public class ConsistentDataPushUtils {
   }
 
   /**
-   * Ensures that all files in tarFilePaths have the expected tar file extension and strip the extension to obtain
-   * segment names.
+   * Ensures that all files in tarFilePaths have the expected tar file extension and obtain segment names given
+   * tarFilePaths.
    */
   public static List<String> getTarSegmentsTo(List<String> tarFilePaths) {
-    List<String> segmentNames = new ArrayList<>();
+    List<String> segmentsTo = new ArrayList<>();
     for (String tarFilePath : tarFilePaths) {
       File tarFile = new File(tarFilePath);
       String fileName = tarFile.getName();
       Preconditions.checkArgument(fileName.endsWith(Constants.TAR_GZ_FILE_EXT));
-      String segmentName = fileName.substring(0, fileName.length() - Constants.TAR_GZ_FILE_EXT.length());
-      segmentNames.add(segmentName);
+      String segmentName = getSegmentNameFromFilePath(fileName);
+      segmentsTo.add(segmentName);
     }
-    return segmentNames;
+    return segmentsTo;
+  }
+
+  /**
+   * Ensures that all URIs in segmentUris have the expected tar file extension and obtain segment names given
+   * segmentUris.
+   */
+  public static List<String> getUriSegmentsTo(List<String> segmentUris) {
+    List<String> segmentsTo = new ArrayList<>();
+    for (String segmentUri : segmentUris) {
+      Preconditions.checkArgument(segmentUri.endsWith(Constants.TAR_GZ_FILE_EXT));
+      String segmentName = getSegmentNameFromFilePath(segmentUri);
+      segmentsTo.add(segmentName);
+    }
+    return segmentsTo;
+  }
+
+  /**
+   * Ensures that all tarPaths in segmentUriToTarPathMap have the expected tar file extension and obtain segment names
+   * given tarPaths.
+   */
+  public static List<String> getMetadataSegmentsTo(Map<String, String> segmentUriToTarPathMap) {
+    return getTarSegmentsTo(new ArrayList<>(segmentUriToTarPathMap.values()));
+  }
+
+  /**
+   * Obtain segment name given filePath by reading from after the last slash (if present) up to and before the tar
+   * extension.
+   */
+  public static String getSegmentNameFromFilePath(String filePath) {
+    int startIndex = filePath.contains("/") ? filePath.lastIndexOf("/") + 1 : 0;
+    return filePath.substring(startIndex, filePath.length() - Constants.TAR_GZ_FILE_EXT.length());
   }
 
   public static TableConfig getTableConfig(SegmentGenerationJobSpec spec) {

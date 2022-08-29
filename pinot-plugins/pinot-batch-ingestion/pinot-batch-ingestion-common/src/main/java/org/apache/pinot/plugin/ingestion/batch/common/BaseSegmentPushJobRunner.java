@@ -42,7 +42,12 @@ public abstract class BaseSegmentPushJobRunner implements IngestionJobRunner {
   protected URI _outputDirURI;
   protected List<String> _segmentsToPush = new ArrayList<>();
   protected Map<String, String> _segmentUriToTarPathMap;
+  protected boolean _consistentPushEnabled;
 
+  /**
+   * Initialize BaseSegmentPushJobRunner with SegmentGenerationJobSpec
+   * Checks for required parameters in the spec and enablement of consistent data push.
+   */
   @Override
   public void init(SegmentGenerationJobSpec spec) {
     _spec = spec;
@@ -59,8 +64,13 @@ public abstract class BaseSegmentPushJobRunner implements IngestionJobRunner {
     if (_spec.getTableSpec().getTableConfigURI() == null) {
       throw new RuntimeException("Missing property 'tableConfigURI' in 'tableSpec'");
     }
+
+    _consistentPushEnabled = ConsistentDataPushUtils.consistentDataPushEnabled(_spec);
   }
 
+  /**
+   * Initialize filesystems and obtain the raw input files for upload.
+   */
   public void initFileSys() {
     // init all file systems
     List<PinotFSSpec> pinotFSSpecs = _spec.getPinotFSSpecs();
@@ -87,23 +97,46 @@ public abstract class BaseSegmentPushJobRunner implements IngestionJobRunner {
     }
   }
 
+  /**
+   * Populates either _segmentsToPush or _segmentUriToTarPathMap based on push type.
+   */
   public abstract void getSegmentsToPush();
 
-  public abstract void pushSegments()
+  /**
+   * Returns segmentsTo based on segments obtained from getSegmentsToPush.
+   * The result will to be supplied to the segment replacement protocol when consistent data push is enabled.
+   */
+  public abstract List<String> getSegmentsTo();
+
+  /**
+   * Upload segment obtained by getSegmentsToPush.
+   */
+  public abstract void uploadSegments()
       throws Exception;
 
+  /**
+   * Runs the main logic of the segment push job runner.
+   * First initialize the filesystem, then upload the segments, while optionally configured to be wrapped around by
+   * the consistent data push protocol.
+   */
   @Override
   public void run() {
     initFileSys();
     Map<URI, String> uriToLineageEntryIdMap = new HashMap<>();
     try {
       getSegmentsToPush();
-      uriToLineageEntryIdMap =
-          ConsistentDataPushUtils.preUpload(_spec, _segmentsToPush);
-      pushSegments();
-      ConsistentDataPushUtils.postUpload(_spec, uriToLineageEntryIdMap);
+      if (_consistentPushEnabled) {
+        List<String> segmentsTo = getSegmentsTo();
+        uriToLineageEntryIdMap = ConsistentDataPushUtils.preUpload(_spec, segmentsTo);
+      }
+      uploadSegments();
+      if (_consistentPushEnabled) {
+        ConsistentDataPushUtils.postUpload(_spec, uriToLineageEntryIdMap);
+      }
     } catch (Exception e) {
-      ConsistentDataPushUtils.handleUploadException(_spec, uriToLineageEntryIdMap, e);
+      if (_consistentPushEnabled) {
+        ConsistentDataPushUtils.handleUploadException(_spec, uriToLineageEntryIdMap, e);
+      }
       throw new RuntimeException(e);
     }
   }

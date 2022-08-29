@@ -19,6 +19,7 @@
 package org.apache.pinot.plugin.ingestion.batch.hadoop;
 
 import java.io.Serializable;
+import java.util.List;
 import org.apache.pinot.plugin.ingestion.batch.common.BaseSegmentPushJobRunner;
 import org.apache.pinot.segment.local.utils.ConsistentDataPushUtils;
 import org.apache.pinot.segment.local.utils.SegmentPushUtils;
@@ -47,8 +48,12 @@ public class HadoopSegmentTarPushJobRunner extends BaseSegmentPushJobRunner
     }
   }
 
-  public void pushSegments()
+  public List<String> getSegmentsTo() {
+    return ConsistentDataPushUtils.getTarSegmentsTo(_segmentsToPush);
+  }
+
+  public void uploadSegments()
       throws AttemptsExceededException, RetriableOperationException {
-    SegmentPushUtils.pushSegments(_spec, _outputDirFS, ConsistentDataPushUtils.getTarSegmentsTo(_segmentsToPush));
+    SegmentPushUtils.pushSegments(_spec, _outputDirFS, _segmentsToPush);
   }
 }

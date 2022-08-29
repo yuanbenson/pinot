@@ -105,9 +105,11 @@ public class SegmentGenerationJobRunnerTest {
     // FUTURE - validate contents of file?
   }
 
+  /**
+   * Enabling consistent data push should generate segment names with timestamps in order to differentiate between
+   * the non-unique raw segment names.
+   */
   @Test
-  // Enabling consistent data push should generate segment names with timestamps in order to differentiate between
-  // the non-unique raw segment names.
   public void testSegmentGenerationWithConsistentPush()
       throws Exception {
     File testDir = makeTestDir();
@@ -246,21 +248,24 @@ public class SegmentGenerationJobRunnerTest {
 
   private File makeTableConfigFile(File testDir, String schemaName) throws IOException {
     File tableConfigFile = new File(testDir, "tableConfig");
-    TableConfig tableConfig =
-        new TableConfigBuilder(TableType.OFFLINE).setTableName("myTable").setSchemaName(schemaName).setNumReplicas(1)
-            .build();
+    TableConfig tableConfig = new TableConfigBuilder(TableType.OFFLINE)
+        .setTableName("myTable")
+        .setSchemaName(schemaName)
+        .setNumReplicas(1)
+        .build();
     FileUtils.write(tableConfigFile, tableConfig.toJsonString(), StandardCharsets.UTF_8);
     return tableConfigFile;
   }
 
-  private File makeTableConfigFileWithConsistentPush(File testDir, String schemaName)
-      throws IOException {
+  private File makeTableConfigFileWithConsistentPush(File testDir, String schemaName) throws IOException {
     File tableConfigFile = new File(testDir, "tableConfig");
     IngestionConfig ingestionConfig = new IngestionConfig();
     ingestionConfig.setBatchIngestionConfig(new BatchIngestionConfig(null, "REFRESH", "DAILY", true));
-    TableConfig tableConfig =
-        new TableConfigBuilder(TableType.OFFLINE).setTableName("myTable").setSchemaName(schemaName).setNumReplicas(1)
-            .setIngestionConfig(ingestionConfig).build();
+    TableConfig tableConfig = new TableConfigBuilder(TableType.OFFLINE)
+        .setTableName("myTable").setSchemaName(schemaName)
+        .setNumReplicas(1)
+        .setIngestionConfig(ingestionConfig)
+        .build();
     FileUtils.write(tableConfigFile, tableConfig.toJsonString(), StandardCharsets.UTF_8);
     return tableConfigFile;
   }

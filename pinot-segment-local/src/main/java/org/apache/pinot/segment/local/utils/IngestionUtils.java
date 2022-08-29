@@ -239,9 +239,8 @@ public final class IngestionUtils {
             outputSegmentDirURI = URI.create(batchConfig.getOutputSegmentDirURI());
           }
           PinotFS outputFileFS = getOutputPinotFS(batchConfig, outputSegmentDirURI);
-          Map<String, String> segmentUriToTarPathMap =
-              SegmentPushUtils.getSegmentUriToTarPathMap(outputSegmentDirURI, segmentUploadSpec.getPushJobSpec(),
-                  segmentTarURIStrs.toArray(new String[0]));
+          Map<String, String> segmentUriToTarPathMap = SegmentPushUtils.getSegmentUriToTarPathMap(outputSegmentDirURI,
+              segmentUploadSpec.getPushJobSpec(), segmentTarURIStrs.toArray(new String[0]));
           SegmentPushUtils.sendSegmentUriAndMetadata(segmentUploadSpec, outputFileFS, segmentUriToTarPathMap);
         } catch (RetriableOperationException | AttemptsExceededException e) {
           throw new RuntimeException(String

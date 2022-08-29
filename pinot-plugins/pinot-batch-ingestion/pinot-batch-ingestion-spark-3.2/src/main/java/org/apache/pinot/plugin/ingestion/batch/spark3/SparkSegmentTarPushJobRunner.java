@@ -23,6 +23,7 @@ import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.pinot.plugin.ingestion.batch.common.BaseSegmentPushJobRunner;
+import org.apache.pinot.segment.local.utils.ConsistentDataPushUtils;
 import org.apache.pinot.segment.local.utils.SegmentPushUtils;
 import org.apache.pinot.spi.env.PinotConfiguration;
 import org.apache.pinot.spi.filesystem.PinotFSFactory;
@@ -55,7 +56,11 @@ public class SparkSegmentTarPushJobRunner extends BaseSegmentPushJobRunner
     }
   }
 
-  public void pushSegments() {
+  public List<String> getSegmentsTo() {
+    return ConsistentDataPushUtils.getTarSegmentsTo(_segmentsToPush);
+  }
+
+  public void uploadSegments() {
     List<PinotFSSpec> pinotFSSpecs = _spec.getPinotFSSpecs();
 
     int pushParallelism = _spec.getPushJobSpec().getPushParallelism();

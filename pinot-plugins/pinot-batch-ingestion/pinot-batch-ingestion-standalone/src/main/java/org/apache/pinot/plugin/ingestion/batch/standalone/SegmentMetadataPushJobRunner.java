@@ -18,6 +18,7 @@
  */
 package org.apache.pinot.plugin.ingestion.batch.standalone;
 
+import java.util.List;
 import org.apache.pinot.plugin.ingestion.batch.common.BaseSegmentPushJobRunner;
 import org.apache.pinot.segment.local.utils.ConsistentDataPushUtils;
 import org.apache.pinot.segment.local.utils.SegmentPushUtils;
@@ -34,10 +35,13 @@ public class SegmentMetadataPushJobRunner extends BaseSegmentPushJobRunner {
 
   public void getSegmentsToPush() {
     _segmentUriToTarPathMap = SegmentPushUtils.getSegmentUriToTarPathMap(_outputDirURI, _spec.getPushJobSpec(), _files);
-    _segmentsToPush = ConsistentDataPushUtils.getMetadataSegmentsTo(_segmentUriToTarPathMap);
   }
 
-  public void pushSegments() throws Exception {
+  public List<String> getSegmentsTo() {
+    return ConsistentDataPushUtils.getMetadataSegmentsTo(_segmentUriToTarPathMap);
+  }
+
+  public void uploadSegments() throws Exception {
     SegmentPushUtils.sendSegmentUriAndMetadata(_spec, _outputDirFS, _segmentUriToTarPathMap);
   }
 }
