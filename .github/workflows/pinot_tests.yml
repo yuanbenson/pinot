@@ -22,7 +22,7 @@ name: Pinot Tests
 on:
   push:
     branches:
-      - master
+      - consistentDataPushTest
     paths-ignore:
       - "contrib/**"
       - "docs/**"
@@ -45,7 +45,6 @@ on:
 
 jobs:
   linter-test:
-    if: github.repository == 'apache/pinot'
     runs-on: ubuntu-latest
     name: Pinot Linter Test Set
     steps:
@@ -67,7 +66,6 @@ jobs:
             --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED
         run: .github/workflows/scripts/.pinot_linter.sh
   unit-test:
-    if: github.repository == 'apache/pinot'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -105,7 +103,6 @@ jobs:
           bash <(curl -s https://codecov.io/bash) -cF unittests${{ matrix.testset }}
 
   integration-test:
-    if: github.repository == 'apache/pinot'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -143,7 +140,6 @@ jobs:
           bash <(curl -s https://codecov.io/bash) -cF integration${{ matrix.testset }}
 
   compatibility-verifier:
-    if: github.repository == 'apache/pinot'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -180,7 +176,6 @@ jobs:
         run: .github/workflows/scripts/.pinot_compatibility_verifier.sh
 
   quickstarts:
-    if: github.repository == 'apache/pinot'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -205,7 +200,6 @@ jobs:
         run: .github/workflows/scripts/.pinot_quickstart.sh
 
   presto-driver-build:
-    if: github.repository == 'apache/pinot'
     runs-on: ubuntu-latest
     name: Build Presto Pinot Driver
     steps:
