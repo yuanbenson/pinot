@@ -72,7 +72,7 @@ public class SegmentLineageCleanupTest {
     _resourceManager.addTable(tableConfig);
 
     IngestionConfig ingestionConfig = new IngestionConfig();
-    ingestionConfig.setBatchIngestionConfig(new BatchIngestionConfig(null, "REFRESH", "DAILY", false));
+    ingestionConfig.setBatchIngestionConfig(new BatchIngestionConfig(null, "REFRESH", "DAILY"));
     TableConfig refreshTableConfig =
         new TableConfigBuilder(TableType.OFFLINE).setTableName(REFRESH_OFFLINE_TABLE_NAME).setNumReplicas(1)
             .setIngestionConfig(ingestionConfig).build();

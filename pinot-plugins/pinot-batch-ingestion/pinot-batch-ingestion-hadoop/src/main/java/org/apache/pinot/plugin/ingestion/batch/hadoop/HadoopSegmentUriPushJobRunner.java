@@ -20,7 +20,9 @@ package org.apache.pinot.plugin.ingestion.batch.hadoop;
 
 import java.io.Serializable;
 import java.net.URI;
+import java.util.List;
 import org.apache.pinot.plugin.ingestion.batch.common.BaseSegmentPushJobRunner;
+import org.apache.pinot.segment.local.utils.ConsistentDataPushUtils;
 import org.apache.pinot.segment.local.utils.SegmentPushUtils;
 import org.apache.pinot.spi.ingestion.batch.spec.Constants;
 import org.apache.pinot.spi.ingestion.batch.spec.SegmentGenerationJobSpec;
@@ -47,7 +49,11 @@ public class HadoopSegmentUriPushJobRunner extends BaseSegmentPushJobRunner
     }
   }
 
-  public void pushSegments() throws Exception {
-    SegmentPushUtils.sendSegmentUriAndMetadata(_spec, _outputDirFS, _segmentUriToTarPathMap);
+  public List<String> getSegmentsTo() {
+    return ConsistentDataPushUtils.getUriSegmentsTo(_segmentsToPush);
+  }
+
+  public void uploadSegments() throws Exception {
+    SegmentPushUtils.sendSegmentUris(_spec, _segmentsToPush);
   }
 }

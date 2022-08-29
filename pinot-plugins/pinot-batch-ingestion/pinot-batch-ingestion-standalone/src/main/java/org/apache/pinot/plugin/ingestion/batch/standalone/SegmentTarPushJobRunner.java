@@ -18,6 +18,7 @@
  */
 package org.apache.pinot.plugin.ingestion.batch.standalone;
 
+import java.util.List;
 import org.apache.pinot.plugin.ingestion.batch.common.BaseSegmentPushJobRunner;
 import org.apache.pinot.segment.local.utils.ConsistentDataPushUtils;
 import org.apache.pinot.segment.local.utils.SegmentPushUtils;
@@ -43,8 +44,12 @@ public class SegmentTarPushJobRunner extends BaseSegmentPushJobRunner {
     }
   }
 
-  public void pushSegments()
+  public List<String> getSegmentsTo() {
+    return ConsistentDataPushUtils.getTarSegmentsTo(_segmentsToPush);
+  }
+
+  public void uploadSegments()
       throws AttemptsExceededException, RetriableOperationException {
-    SegmentPushUtils.pushSegments(_spec, _outputDirFS, ConsistentDataPushUtils.getTarSegmentsTo(_segmentsToPush));
+    SegmentPushUtils.pushSegments(_spec, _outputDirFS, _segmentsToPush);
   }
 }

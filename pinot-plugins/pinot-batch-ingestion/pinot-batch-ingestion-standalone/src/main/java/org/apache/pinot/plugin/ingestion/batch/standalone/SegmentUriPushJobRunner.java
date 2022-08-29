@@ -19,7 +19,9 @@
 package org.apache.pinot.plugin.ingestion.batch.standalone;
 
 import java.net.URI;
+import java.util.List;
 import org.apache.pinot.plugin.ingestion.batch.common.BaseSegmentPushJobRunner;
+import org.apache.pinot.segment.local.utils.ConsistentDataPushUtils;
 import org.apache.pinot.segment.local.utils.SegmentPushUtils;
 import org.apache.pinot.spi.ingestion.batch.spec.Constants;
 import org.apache.pinot.spi.ingestion.batch.spec.SegmentGenerationJobSpec;
@@ -48,7 +50,11 @@ public class SegmentUriPushJobRunner extends BaseSegmentPushJobRunner {
     }
   }
 
-  public void pushSegments()
+  public List<String> getSegmentsTo() {
+    return ConsistentDataPushUtils.getUriSegmentsTo(_segmentsToPush);
+  }
+
+  public void uploadSegments()
       throws AttemptsExceededException, RetriableOperationException {
     SegmentPushUtils.sendSegmentUris(_spec, _segmentsToPush);
   }
