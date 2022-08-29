@@ -212,7 +212,7 @@ public class SegmentUploadIntegrationTest extends BaseClusterIntegrationTest {
     // Create and upload the schema and table config
     Schema schema = createSchema();
     addSchema(schema);
-    TableConfig offlineTableConfig = createOfflineTableConfigWtihConsistentPush();
+    TableConfig offlineTableConfig = createOfflineTableConfigWithConsistentPush();
     addTableConfig(offlineTableConfig);
 
     List<File> avroFiles = getAllAvroFiles();
@@ -321,7 +321,7 @@ public class SegmentUploadIntegrationTest extends BaseClusterIntegrationTest {
     Assert.assertTrue(segmentLineageResponse.contains("\"segmentsTo\":[\"" + segmentNameWithoutMove + "\"]"));
   }
 
-  protected TableConfig createOfflineTableConfigWtihConsistentPush() {
+  protected TableConfig createOfflineTableConfigWithConsistentPush() {
     TableConfig offlineTableConfig = createOfflineTableConfig();
     IngestionConfig ingestionConfig = new IngestionConfig();
     ingestionConfig.setBatchIngestionConfig(new BatchIngestionConfig(null, "REFRESH", "DAILY", true));

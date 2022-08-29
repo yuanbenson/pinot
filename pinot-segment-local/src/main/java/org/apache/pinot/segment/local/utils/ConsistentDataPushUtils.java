@@ -60,8 +60,8 @@ public class ConsistentDataPushUtils {
   public static final String SEGMENT_NAME_POSTFIX = "segment.name.postfix";
 
   /**
-   * Checks for enablement of consistent data push. If enabled, start consistent data push protocol and
-   * returns a map of controller URI to lineage entry IDs.
+   * Checks for enablement of consistent data push. If enabled, fetch the list of segments to be replaced, then
+   * invoke startReplaceSegments API and returns a map of controller URI to lineage entry IDs.
    * If not, returns an empty hashmap.
    */
   public static Map<URI, String> preUpload(SegmentGenerationJobSpec spec, List<String> segmentsTo)
@@ -69,10 +69,10 @@ public class ConsistentDataPushUtils {
     String rawTableName = spec.getTableSpec().getTableName();
     boolean consistentDataPushEnabled = consistentDataPushEnabled(spec);
     LOGGER.info("Consistent data push is: {}", consistentDataPushEnabled ? "enabled" : "disabled");
-    Map<URI, String> uriToLineageEntryIdMap = new HashMap<>();
+    Map<URI, String> uriToLineageEntryIdMap = null;
     if (consistentDataPushEnabled) {
       LOGGER.info("Start consistent push for table: " + rawTableName);
-      Map<URI, List<String>> uriToExistingOfflineSegments = getSelectedOfflineSegments(spec, rawTableName);
+      Map<URI, List<String>> uriToExistingOfflineSegments = getSegmentsToReplace(spec, rawTableName);
       LOGGER.info("Existing segments for table {}: " + uriToExistingOfflineSegments, rawTableName);
       LOGGER.info("New segments for table: {}: " + segmentsTo, rawTableName);
       uriToLineageEntryIdMap = startReplaceSegments(spec, uriToExistingOfflineSegments, segmentsTo);
@@ -86,7 +86,7 @@ public class ConsistentDataPushUtils {
    */
   public static void postUpload(SegmentGenerationJobSpec spec, Map<URI, String> uriToLineageEntryIdMap) {
     String rawTableName = spec.getTableSpec().getTableName();
-    if (!uriToLineageEntryIdMap.isEmpty()) {
+    if (uriToLineageEntryIdMap != null && !uriToLineageEntryIdMap.isEmpty()) {
       LOGGER.info("End consistent push for table: " + rawTableName);
       endReplaceSegments(spec, uriToLineageEntryIdMap);
     }
@@ -204,20 +204,21 @@ public class ConsistentDataPushUtils {
    */
   public static void handleUploadException(SegmentGenerationJobSpec spec, Map<URI, String> uriToLineageEntryIdMap,
       Exception exception) {
-    LOGGER.error("Exception when pushing segments. Marking segment lineage entry to 'REVERTED'.", exception);
-    String rawTableName = spec.getTableSpec().getTableName();
-    for (Map.Entry<URI, String> entry : uriToLineageEntryIdMap.entrySet()) {
-      String segmentLineageEntryId = entry.getValue();
-      try {
-        URI uri =
-            FileUploadDownloadClient.getRevertReplaceSegmentsURI(entry.getKey(), rawTableName, TableType.OFFLINE.name(),
-                segmentLineageEntryId, true);
-        SimpleHttpResponse response = FILE_UPLOAD_DOWNLOAD_CLIENT.revertReplaceSegments(uri);
-        LOGGER.info("Got response {}: {} while sending revert replace segment request for table: {}, uploadURI: {}",
-            response.getStatusCode(), response.getResponse(), rawTableName, entry.getKey());
-      } catch (URISyntaxException | HttpErrorStatusException | IOException e) {
-        LOGGER.error("Exception when sending revert replace segment request to controller: {} for table: {}",
-            entry.getKey(), rawTableName, e);
+    if (uriToLineageEntryIdMap != null) {
+      LOGGER.error("Exception when pushing segments. Marking segment lineage entry to 'REVERTED'.", exception);
+      String rawTableName = spec.getTableSpec().getTableName();
+      for (Map.Entry<URI, String> entry : uriToLineageEntryIdMap.entrySet()) {
+        String segmentLineageEntryId = entry.getValue();
+        try {
+          URI uri = FileUploadDownloadClient.getRevertReplaceSegmentsURI(entry.getKey(), rawTableName,
+              TableType.OFFLINE.name(), segmentLineageEntryId, true);
+          SimpleHttpResponse response = FILE_UPLOAD_DOWNLOAD_CLIENT.revertReplaceSegments(uri);
+          LOGGER.info("Got response {}: {} while sending revert replace segment request for table: {}, uploadURI: {}",
+              response.getStatusCode(), response.getResponse(), rawTableName, entry.getKey());
+        } catch (URISyntaxException | HttpErrorStatusException | IOException e) {
+          LOGGER.error("Exception when sending revert replace segment request to controller: {} for table: {}",
+              entry.getKey(), rawTableName, e);
+        }
       }
     }
   }
@@ -289,7 +290,7 @@ public class ConsistentDataPushUtils {
   /**
    * Returns a map of controller URI to a list of existing OFFLINE segments.
    */
-  public static Map<URI, List<String>> getSelectedOfflineSegments(SegmentGenerationJobSpec spec, String rawTableName) {
+  public static Map<URI, List<String>> getSegmentsToReplace(SegmentGenerationJobSpec spec, String rawTableName) {
     Map<URI, List<String>> uriToOfflineSegments = new HashMap<>();
     for (PinotClusterSpec pinotClusterSpec : spec.getPinotClusterSpecs()) {
       URI controllerURI;
@@ -302,7 +303,7 @@ public class ConsistentDataPushUtils {
         uriToOfflineSegments.put(controllerURI, offlineSegments);
       } catch (URISyntaxException e) {
         throw new RuntimeException("Got invalid controller uri - '" + pinotClusterSpec.getControllerURI() + "'");
-      } catch (HttpErrorStatusException | IOException e) {
+      } catch (IOException e) {
         e.printStackTrace();
       }
     }

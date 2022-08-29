@@ -757,25 +757,31 @@ public class FileUploadDownloadClient implements AutoCloseable {
    */
   public Map<String, List<String>> getSegments(URI uri, String rawTableName, @Nullable String tableType,
       boolean excludeReplacedSegments)
-      throws URISyntaxException, IOException, HttpErrorStatusException {
-    ControllerRequestURLBuilder controllerRequestURLBuilder = ControllerRequestURLBuilder.baseUrl(uri.toString());
-    RequestBuilder requestBuilder = RequestBuilder.get(
-        controllerRequestURLBuilder.forSegmentListAPIWithTableTypeAndExcludeReplacedSegments(rawTableName, tableType,
-            excludeReplacedSegments)).setVersion(HttpVersion.HTTP_1_1);
-    HttpClient.setTimeout(requestBuilder, HttpClient.DEFAULT_SOCKET_TIMEOUT_MS);
-    SimpleHttpResponse response = HttpClient.wrapAndThrowHttpException(_httpClient.sendRequest(requestBuilder.build()));
-    String responseString = response.getResponse();
-    JsonNode responseJsonNode = JsonUtils.stringToJsonNode(responseString);
+      throws URISyntaxException, IOException {
     List<String> tableTypes;
     if (tableType == null || tableType.isEmpty()) {
       tableTypes = Arrays.asList(TableType.OFFLINE.toString(), TableType.REALTIME.toString());
     } else {
       tableTypes = List.of(tableType);
     }
+    ControllerRequestURLBuilder controllerRequestURLBuilder = ControllerRequestURLBuilder.baseUrl(uri.toString());
     Map<String, List<String>> tableTypeToSegments = new HashMap<>();
     for (String tableTypeToFilter : tableTypes) {
-      Iterator<JsonNode> responseElements = responseJsonNode.elements();
       List<String> segments = new ArrayList<>();
+      RequestBuilder requestBuilder = RequestBuilder.get(
+          controllerRequestURLBuilder.forSegmentListAPIWithTableTypeAndExcludeReplacedSegments(rawTableName,
+              tableTypeToFilter, excludeReplacedSegments)).setVersion(HttpVersion.HTTP_1_1);
+      HttpClient.setTimeout(requestBuilder, HttpClient.DEFAULT_SOCKET_TIMEOUT_MS);
+      SimpleHttpResponse response;
+      try {
+        response = HttpClient.wrapAndThrowHttpException(_httpClient.sendRequest(requestBuilder.build()));
+      } catch (HttpErrorStatusException e) {
+        tableTypeToSegments.put(tableTypeToFilter, segments);
+        continue;
+      }
+      String responseString = response.getResponse();
+      JsonNode responseJsonNode = JsonUtils.stringToJsonNode(responseString);
+      Iterator<JsonNode> responseElements = responseJsonNode.elements();
       while (responseElements.hasNext()) {
         JsonNode responseElementJsonNode = responseElements.next();
         if (!responseElementJsonNode.has(tableTypeToFilter)) {

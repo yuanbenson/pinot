@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.pinot.segment.local.utils.ConsistentDataPushUtils;
@@ -122,7 +121,7 @@ public abstract class BaseSegmentPushJobRunner implements IngestionJobRunner {
   @Override
   public void run() {
     initFileSys();
-    Map<URI, String> uriToLineageEntryIdMap = new HashMap<>();
+    Map<URI, String> uriToLineageEntryIdMap = null;
     try {
       getSegmentsToPush();
       if (_consistentPushEnabled) {
